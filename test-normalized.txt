@@ -1,0 +1,5 @@
+SubClassOf(<Male> <Person>)
+SubClassOf(ObjectSomeValuesFrom(<hasChild> <Person>) <Parent>)
+SubClassOf(ObjectIntersectionOf(<Parent> <Male>) <Father>)
+SubClassOf(<Father> ObjectSomeValuesFrom(<hasChild> <Male>))
+SubClassOf(<Parent> <Person>)
