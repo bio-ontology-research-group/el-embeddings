@@ -1,8 +1,16 @@
 using ForwardDiff
 using Distances
+using LinearAlgebra
+using ReverseDiff
+using AutoGrad
+using CuArrays
+using Flux
+using Flux.Tracker
+using Flux: @epochs
+
 
 LR = 0.01 # learning rate
-EPOCHS = 1000 # number of epochs
+EPOCHS = 10 # number of epochs
 DIM = 2 # dimensionality of embeddings
 
 function radius(x)
@@ -110,19 +118,35 @@ open(ARGS[1]) do file
     end
 end
 
-# there are now rcount-1 relations and ccount-1 classes; generate random embeddings
-cvec = rand(ccount-1, DIM + 1)
-rvec = rand(rcount-1, DIM)
+# there are now rcount-1 relations and ccount-1 classes; generate random embeddings; offload to GPU; make them trainable
+cvec = param(cu(rand(ccount-1, DIM + 1)))
+rvec = param(cu(rand(rcount-1, DIM)))
 
-par = rand(3)
-child = rand(3)
-male = rand(3)
-hasChild = rand(2)
+# setting up reverse maps for faster lookups
+rclasses = Dict(value => key for (key, value) in classes)
+rrelations = Dict(value => key for (key, value) in relations)
 
-q(x) = loss2(x, par, male)
-t(x) = ForwardDiff.gradient(q, x)
-for i in 1:EPOCHS
-    global child
-    child = child - t(child) * LR
-    println(radius(child))
+# set to array, just for convenience
+nf1arr =  collect(nf1)
+nf2arr =  collect(nf2)
+nf3arr =  collect(nf3)
+nf4arr =  collect(nf4)
+
+# loss functions that work with arrays
+function loss1(x::Int, y::Int)
+    return loss1(cvec[x,:], cvec[y,:])
 end
+function loss2(x::Int, y::Int, z::Int)
+    return loss2(cvec[x,:], cvec[y,:], cvec[z,:])
+end
+function loss3(x::Int, y::Int, r::Int)
+    return loss2(cvec[x,:], cvec[y,:], rvec[r,:])
+end
+function loss4(x::Int, y::Int, r::Int)
+    return loss4(cvec[x,:], cvec[y,:], rvec[r,:])
+end
+
+params = Params([cvec, rvec])
+opt = SGD([cvec, rvec], 0.1) 
+
+Flux.train!(loss1, nf1arr, opt)
