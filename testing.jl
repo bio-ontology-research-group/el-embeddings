@@ -50,7 +50,7 @@ function loss3(c, d, r) # normal form 3
 end
 
 function loss4(c, d, r) # normal form 4
-    return max(0, euclidean(centerpoint(c)+r, centerpoint(d)) + abs(radius(d)) - abs(radius(c)))
+    return max(0, euclidean(centerpoint(c) + r, centerpoint(d)) + abs(radius(d)) - abs(radius(c)))
 end
 
 classes = Dict()
@@ -105,14 +105,14 @@ open(ARGS[1]) do file
                 c = filldict(c)
                 d = filldict(d)
                 r = rfilldict(r)
-                push!(nf4, (r,c,d))
+                push!(nf4, (c,d,r))
             elseif occursin(r"SubClassOf.<[^\s]*>[\s]*ObjectSomeValuesFrom", line)  # normal form 3
                 m = match(r"(<.*>).*(<.*>).*(<.*>)", line) # 3 captures: C SubClassOf: R some D
                 c,r,d = m.captures
                 c = filldict(c)
                 d = filldict(d)
                 r = rfilldict(r)
-                push!(nf3, (c,r,d))
+                push!(nf3, (c,d,r))
             end
         end
     end
@@ -140,13 +140,22 @@ function loss2(x::Int, y::Int, z::Int)
     return loss2(cvec[x,:], cvec[y,:], cvec[z,:])
 end
 function loss3(x::Int, y::Int, r::Int)
-    return loss2(cvec[x,:], cvec[y,:], rvec[r,:])
+    return loss3(cvec[x,:], cvec[y,:], rvec[r,:])
 end
 function loss4(x::Int, y::Int, r::Int)
     return loss4(cvec[x,:], cvec[y,:], rvec[r,:])
 end
 
-params = Params([cvec, rvec])
-opt = SGD([cvec, rvec], 0.1) 
+opt = SGD([cvec, rvec], 0.01) 
 
-Flux.train!(loss1, nf1arr, opt)
+for k in 1:EPOCHS
+    Flux.train!(loss1, nf1arr, opt)
+    Flux.train!(loss2, nf2arr, opt)
+    Flux.train!(loss3, nf3arr, opt)
+    Flux.train!(loss4, nf4arr, opt)
+    println("Epoch: $k")
+    println("Loss 1: ",  sum([loss1(x,y) for (x,y) in nf1arr]))
+    println("Loss 2: ",  sum([loss2(x,y,z) for (x,y,z) in nf2arr]))
+    println("Loss 3: ",  sum([loss3(x,y,r) for (x,y,r) in nf3arr]))
+    println("Loss 4: ",  sum([loss4(x,y,r) for (x,y,r) in nf4arr]))
+end
