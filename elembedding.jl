@@ -270,4 +270,21 @@ for i in 1:EPOCHS
     Flux.train!(loss4, nf4arr, opt, cb=evalcb4)
 end
 
-writedlm(args["output"], cvec)
+open(args["output"], "w") do file
+    for c,ind in classes
+        write(file, c)
+        vec = cvec[ind]
+        for val in vec
+            write(file,"\t",val)
+        end
+        write(file, "\n")
+    end
+    for r,ind in relations
+        write(file, r)
+        vec = rvec[ind]
+        for val in vec
+            write(file,"\t",val)
+        end
+        write(file, "\n")
+    end
+end
