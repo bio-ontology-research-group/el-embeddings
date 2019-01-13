@@ -250,7 +250,6 @@ else
 end
 
 TESTSIZE = 20
-println(length(nf2arr))
 test1 = collect(RandomBatches(nf1arr, TESTSIZE, 1))
 test2 = collect(RandomBatches(nf2arr, TESTSIZE, 1))
 test3 = collect(RandomBatches(nf3arr, TESTSIZE, 1))
@@ -271,7 +270,7 @@ for i in 1:EPOCHS
 end
 
 open(args["output"], "w") do file
-    for c,ind in classes
+    for (c,ind) in classes
         write(file, c)
         vec = cvec[ind]
         for val in vec
@@ -279,7 +278,7 @@ open(args["output"], "w") do file
         end
         write(file, "\n")
     end
-    for r,ind in relations
+    for (r,ind) in relations
         write(file, r)
         vec = rvec[ind]
         for val in vec
