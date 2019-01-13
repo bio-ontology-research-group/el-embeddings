@@ -14,6 +14,13 @@ Next, `cd jcel` and `mvn install` to build the jcel jar files.
 For convenience, we include the jar file in the `jar/` subdirectory, so you may simply want to add `jcel.jar` to your CLASSPATH.
 Then run `groovy Normalizer.groovy` and follow the instructions (i.e., command line options are in input OWL file and and output file containing the normal forms in OWL functional syntax).
 
+```
+usage: groovy Normalizer.groovy -i INPUT -o OUTPUT [-h]
+ -h,--help           this information
+ -i,--input <arg>    input OWL file
+ -o,--output <arg>   output file containing normalized axioms
+```
+
 To generate the embeddings, run `julia elembedding.jl --help` and follow instructions. You need CUDA installed to use a GPU, and need to install the packages
 `ArgParse`, `MLDataUtils`, `ForwardDiff`, `Distances`, `LinearAlgebra`, `ReverseDiff`, `AutoGrad`, `Random`, `Flux`, `DelimitedFiles` using Julia's package management system (e.g., `Pkg.add()`).
 If you want to use a GPU during training, also install the `CuArrays` package.
