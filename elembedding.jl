@@ -249,41 +249,55 @@ else
     rvec = param(rvec)
 end
 
-TESTSIZE = 20
-test1 = collect(RandomBatches(nf1arr, TESTSIZE, 1))
-test2 = collect(RandomBatches(nf2arr, TESTSIZE, 1))
-test3 = collect(RandomBatches(nf3arr, TESTSIZE, 1))
-test4 = collect(RandomBatches(nf4arr, TESTSIZE, 1))
-
-#evalcb1 = throttle(() -> @show(loss1([1])), 5)
-evalcb1 = Flux.throttle(() -> @show(sum(loss1.(test1[1]))), 20)
-evalcb2 = Flux.throttle(() -> @show(sum(loss2.(test2[1]))), 20)
-evalcb3 = Flux.throttle(() -> @show(sum(loss3.(test3[1]))), 20)
-evalcb4 = Flux.throttle(() -> @show(sum(loss4.(test4[1]))), 20)
-
 opt = SGD([cvec, rvec], LR)
-for i in 1:EPOCHS
-    Flux.train!(loss1, nf1arr, opt, cb=evalcb1)
-    Flux.train!(loss2, nf2arr, opt, cb=evalcb2)
-    Flux.train!(loss3, nf3arr, opt, cb=evalcb3)
-    Flux.train!(loss4, nf4arr, opt, cb=evalcb4)
+if (length(nf1) < 10) || (length(nf2) < 10) || (length(nf3) < 10) || (length(nf4) < 10)
+    for i in 1:EPOCHS
+        Flux.train!(loss1, nf1arr, opt)
+        Flux.train!(loss2, nf2arr, opt)
+        Flux.train!(loss3, nf3arr, opt)
+        Flux.train!(loss4, nf4arr, opt)
+    end
+else
+    TESTSIZE = 20
+    test1 = collect(RandomBatches(nf1arr, TESTSIZE, 1))
+    test2 = collect(RandomBatches(nf2arr, TESTSIZE, 1))
+    test3 = collect(RandomBatches(nf3arr, TESTSIZE, 1))
+    test4 = collect(RandomBatches(nf4arr, TESTSIZE, 1))
+    
+    #evalcb1 = throttle(() -> @show(loss1([1])), 5)
+    evalcb1 = Flux.throttle(() -> @show(sum(loss1.(test1[1]))), 20)
+    evalcb2 = Flux.throttle(() -> @show(sum(loss2.(test2[1]))), 20)
+    evalcb3 = Flux.throttle(() -> @show(sum(loss3.(test3[1]))), 20)
+    evalcb4 = Flux.throttle(() -> @show(sum(loss4.(test4[1]))), 20)
+    
+    
+    for i in 1:EPOCHS
+        Flux.train!(loss1, nf1arr, opt, cb=evalcb1)
+        Flux.train!(loss2, nf2arr, opt, cb=evalcb2)
+        Flux.train!(loss3, nf3arr, opt, cb=evalcb3)
+        Flux.train!(loss4, nf4arr, opt, cb=evalcb4)
+    end
 end
 
 open(args["output"], "w") do file
     for (c,ind) in classes
-        write(file, c)
-        vec = cvec[ind]
-        for val in vec
-            write(file,"\t",val)
+        if ind > 0
+            write(file, c)
+            vec = cvec[ind]
+            for val in vec
+                write(file,"\t$val")
+            end
+            write(file, "\n")
         end
-        write(file, "\n")
     end
     for (r,ind) in relations
-        write(file, r)
-        vec = rvec[ind]
-        for val in vec
-            write(file,"\t",val)
+        if ind > 0
+            write(file, r)
+            vec = rvec[ind]
+            for val in vec
+                write(file,"\t$val")
+            end
+            write(file, "\n")
         end
-        write(file, "\n")
     end
 end
