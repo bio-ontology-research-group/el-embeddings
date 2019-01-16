@@ -279,11 +279,18 @@ else
     end
 end
 
+cvec = Flux.Tracker.data(cvec)
+rvec = Flux.Tracker.data(rvec)
 open(args["output"], "w") do file
+    write(file, "IRI")
+    for i in 1:DIM
+        write(file, "\tV$i")
+    end
+    write(file, "\tr\n")
     for (c,ind) in classes
         if ind > 0
             write(file, c)
-            vec = cvec[ind]
+            vec = cvec[ind,:]
             for val in vec
                 write(file,"\t$val")
             end
@@ -293,7 +300,7 @@ open(args["output"], "w") do file
     for (r,ind) in relations
         if ind > 0
             write(file, r)
-            vec = rvec[ind]
+            vec = rvec[ind,:]
             for val in vec
                 write(file,"\t$val")
             end
