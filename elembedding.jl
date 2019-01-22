@@ -36,6 +36,10 @@ arguments = ArgParseSettings()
     "--gpu", "-g"
     action = :store_true
     help = "use GPU accelleration"
+    "--margin", "-m"
+    arg_type = Float64
+    default = 0.1
+    help = "margin parameter"
 end
 args = parse_args(ARGS, arguments)
 if args["gpu"] == true
@@ -175,7 +179,7 @@ end
 
 # loss functions that work with class indices
 function loss1(c::Int, d::Int)
-    return max(0, euclidean(centerpoint(c), centerpoint(d)) + abs(radius(c)) - abs(radius(d)))
+    return max(0, euclidean(centerpoint(c), centerpoint(d)) + abs(radius(c)) - abs(radius(d)) + args["margin"])
 end
 function loss1(x::Tuple{Int64,Int64})
     return loss1(x[1],x[2])
@@ -187,7 +191,7 @@ end
 function loss2(c1::Int, c2::Int, d::Int) # loss for c1 and c2 SubClassOf: d
     dist = euclidean(centerpoint(c1), centerpoint(c2))
     if dist > abs(radius(c1)) + abs(radius(c2))
-        return abs(radius(c2)) + abs(radius(c2)) + 1 # no solution, circles are separate
+        return abs(radius(c2)) + abs(radius(c2)) + args["margin"] # no solution, circles are separate
     elseif dist < abs(radius(c1)-radius(c2)) # no solution, one circle contained in other
         if abs(radius(c1)) < abs(radius(c2))
             return loss1(c1, d) # return loss1 of smaller class (c1) and d
@@ -200,7 +204,7 @@ function loss2(c1::Int, c2::Int, d::Int) # loss for c1 and c2 SubClassOf: d
         a = (radius(c1)^2 - radius(c2)^2 + dist^2)/(2 * dist)
         rad = sqrt(radius(c1)^2 - a^2)
         cent = centerpoint(c1) + a * (centerpoint(c2) - centerpoint(c1)) / dist
-        return max(0, euclidean(cent, centerpoint(d)) + abs(rad) - abs(radius(d)))
+        return max(0, euclidean(cent, centerpoint(d)) + abs(rad) - abs(radius(d)) + args["margin"])
 
     end
 end
@@ -210,7 +214,7 @@ function loss2(x::Tuple{Int64,Int64,Int64})
 end
 
 function loss3(c::Int, d::Int, r::Int) # normal form 3
-    return max(0, euclidean(centerpoint(c) - v(r), centerpoint(d)) + abs(radius(d)) - abs(radius(c)))
+    return max(0, euclidean(centerpoint(c) - v(r), centerpoint(d)) + abs(radius(d)) - abs(radius(c)) + args["margin"])
 end
 
 function loss3(x::Tuple{Int64,Int64,Int64})
@@ -218,7 +222,7 @@ function loss3(x::Tuple{Int64,Int64,Int64})
 end
 
 function loss4(c::Int, d::Int, r::Int) # normal form 4
-    return max(0, euclidean(centerpoint(c) + v(r), centerpoint(d)) + abs(radius(d)) - abs(radius(c)))
+    return max(0, euclidean(centerpoint(c) + v(r), centerpoint(d)) + abs(radius(d)) - abs(radius(c)) + args["margin"])
 end
 
 function loss4(x::Tuple{Int64,Int64,Int64})
