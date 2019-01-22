@@ -225,7 +225,7 @@ function loss3(x::Tuple{Int64,Int64,Int64})
 end
 
 function loss4(c::Int, d::Int, r::Int) # normal form 4
-    return max(0, euclidean(centerpoint(c) + v(r), centerpoint(d)) + abs(radius(d)) - abs(radius(c)) + args["margin"])
+    return max(0, euclidean(centerpoint(c) + v(r), centerpoint(d)) + abs(radius(c)) - abs(radius(d)) + args["margin"])
 end
 
 function loss4(x::Tuple{Int64,Int64,Int64})
