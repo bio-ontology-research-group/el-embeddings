@@ -190,8 +190,11 @@ end
 
 function loss2(c1::Int, c2::Int, d::Int) # loss for c1 and c2 SubClassOf: d
     dist = euclidean(centerpoint(c1), centerpoint(c2))
-    if dist > abs(radius(c1)) + abs(radius(c2))
-        return abs(radius(c2)) + abs(radius(c2)) + args["margin"] # no solution, circles are separate
+    if dist > abs(radius(c1)) + abs(radius(c2)) # no solution, circles are separate
+        rad = 0 # radius is 0
+        cent = centerpoint(c1) + (centerpoint(c2) - centerpoint(c1)) / (dist - radius(c2)) # half-way between outer edges of the class
+        # loss1 between the class with radius 0 and centerpoint half-way between c1 and c2, plus a penalty for the distance between c1 and c2
+        return max(0, euclidean(cent, centerpoint(d)) + abs(rad) - abs(radius(d)) + (dist - abs(radius(c1)) - abs(radius(c2)) + args["margin"]))
     elseif dist < abs(radius(c1)-radius(c2)) # no solution, one circle contained in other
         if abs(radius(c1)) < abs(radius(c2))
             return loss1(c1, d) # return loss1 of smaller class (c1) and d
