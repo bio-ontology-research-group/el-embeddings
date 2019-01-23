@@ -1,0 +1,7 @@
+SubClassOf(<Male> <Person>)
+SubClassOf(<Female> <Person>)
+SubClassOf(ObjectIntersectionOf(<Female> <Male>) owl:Nothing)
+SubClassOf(ObjectSomeValuesFrom(<hasChild> <Person>) <Parent>)
+SubClassOf(<Parent> <Person>)
+SubClassOf(<Parent> ObjectSomeValuesFrom(<hasChild> owl:Thing))
+
