@@ -46,21 +46,23 @@ new File("data/go.obo").eachLine { line ->
     if (line.startsWith("id:")) {
 	tid = line.substring(3).trim()
     }
-    if (line.startsWith("is_a:")) {
-	def id2 = line.substring(6, 16)
-	map[tid]["is_a"].add(id2)
-    }
-    if (line.startsWith("relationship:")) {
-	def l2 = line.substring(14, line.indexOf("!")).trim()
-	def rel = l2.substring(0, l2.indexOf(" ")).trim()
-	def id2 = l2.substring(l2.indexOf(" ")+1).trim()
-	map[tid][rel].add(id2)
+    if (tid.startsWith("GO:")) {
+	if (line.startsWith("is_a:")) {
+	    def id2 = line.substring(6, 16).trim()
+	    map[tid]["is_a"].add(id2)
+	}
+	if (line.startsWith("relationship:")) {
+	    def l2 = line.substring(14, line.indexOf("!")).trim()
+	    def rel = l2.substring(0, l2.indexOf(" ")).trim()
+	    def id2 = l2.substring(l2.indexOf(" ")+1).trim()
+	    map[tid][rel].add(id2)
+	}
     }
 }
 map.each { k, map2 ->
     map2.each { k2, s ->
 	s.each { el ->
-	    fout.println("<http://$k> <http://$k2> <http://$el>")
+	    fout.println("<http://$k> <http://$k2> <http://$el> .")
 	}
     }
 }
@@ -75,7 +77,7 @@ new File(opt.i).splitEachLine("\t") { line ->
 	if (score >= 700) {  // only use high-confidence predictions
 	    idset.add(id1)
 	    idset.add(id2)
-	    fout.println("<http://$id1> <http://$rel> <http://$id2>")
+	    fout.println("<http://$id1> <http://$rel> <http://$id2> .")
 	}
     }
 }
@@ -85,7 +87,7 @@ new File("data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
     def id = line[0]+"."+line[1]
     def go = "<"+line[3]+">"
     if (id in idset) {
-	fout.println("<http://$id> $hasFunction $go")
+	fout.println("<http://$id> $hasFunction $go .")
     }
 }
 

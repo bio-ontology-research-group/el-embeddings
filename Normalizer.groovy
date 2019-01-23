@@ -1,4 +1,5 @@
 
+
 import org.semanticweb.owlapi.apibinding.OWLManager
 import org.semanticweb.owlapi.functional.renderer.OWLFunctionalSyntaxRenderer
 import org.semanticweb.owlapi.io.AbstractOWLRenderer
@@ -26,10 +27,28 @@ import de.tudresden.inf.lat.jcel.coreontology.axiom.*
 import de.tudresden.inf.lat.jcel.owlapi.translator.*
 import de.tudresden.inf.lat.jcel.ontology.axiom.complex.*
 
+def cli = new CliBuilder()
+cli.with {
+usage: 'Self'
+  h longOpt:'help', 'this information'
+  i longOpt:'input', 'input OWL file', args:1, required:true
+  o longOpt:'output', 'output file containing normalized axioms',args:1, required:true
+}
+def opt = cli.parse(args)
+if( !opt ) {
+  //  cli.usage()
+  return
+}
+if( opt.h ) {
+    cli.usage()
+    return
+}
+
+
 // input: OWL file
-File ontologyFile = new File(args[0])
+File ontologyFile = new File(opt.i)
 // output: contains all normalized axioms in OWL Functional Syntax
-PrintWriter fout = new PrintWriter(new BufferedWriter(new FileWriter(args[1])))
+PrintWriter fout = new PrintWriter(new BufferedWriter(new FileWriter(opt.o)))
 
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
 OWLOntology ontology = manager.loadOntologyFromOntologyDocument(ontologyFile)
