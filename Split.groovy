@@ -18,6 +18,8 @@ if( opt.h ) {
 
 PrintWriter fout1 = new PrintWriter(new FileWriter(opt.o))
 PrintWriter fout2 = new PrintWriter(new FileWriter(opt.t))
+Set<String> set = new HashSet<String>()
+
 new File(opt.i).splitEachLine("\t") { line ->
     if (!line[0].startsWith("item")) {
 	def id1 = line[0]
@@ -25,12 +27,15 @@ new File(opt.i).splitEachLine("\t") { line ->
 	def rel = line[2]
 	def score = new Integer(line[-1])
 	if (score >= 700) {  // only use high-confidence predictions
-	    if (Math.random()>0.1) {
-		fout1.println("$id1\t$id2\t$rel\t$score")
-	    } else {
-		fout2.println("$id1\t$id2\t$rel\t$score")
-	    }
+	    set.add("$id1\t$id2\t$rel")
 	}
+    }
+}
+set.each {
+    if (Math.random() > 0.1) {
+	fout1.println("$it")
+    } else {
+	fout2.println("$it")
     }
 }
 fout1.flush()

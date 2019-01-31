@@ -94,10 +94,12 @@ def main(data_file, out_classes_file, out_relations_file,
 
 class ELModel(tf.keras.Model):
 
-    def __init__(self, nb_classes, nb_relations, embedding_size):
+    def __init__(self, nb_classes, nb_relations, embedding_size, margin=0.01, reg_norm=1):
         super(ELModel, self).__init__()
         self.nb_classes = nb_classes
         self.nb_relations = nb_relations
+        self.margin = margin
+        self.reg_norm = reg_norm
         
         self.cls_embeddings = tf.keras.layers.Embedding(
             nb_classes,
@@ -111,34 +113,34 @@ class ELModel(tf.keras.Model):
     def call(self, input):
         """Run the model."""
         nf1, nf2, nf3, nf4, dis = input
-        loss1 = self.nf1_loss(nf1)
-        loss2 = self.nf2_loss(nf2)
-        loss3 = self.nf3_loss(nf3)
-        loss4 = self.nf4_loss(nf4)
-        loss_dis = self.dis_loss(dis)
+        loss1 = self.nf1_loss(nf1, self.margin, self.reg_norm)
+        loss2 = self.nf2_loss(nf2, self.margin, self.reg_norm)
+        loss3 = self.nf3_loss(nf3, self.margin, self.reg_norm)
+        loss4 = self.nf4_loss(nf4, self.margin, self.reg_norm)
+        loss_dis = self.dis_loss(dis, self.margin, self.reg_norm)
         loss = loss1 + loss2 + loss3 + loss4 + loss_dis
         return loss
    
-    def loss(self, c, d):
+    def loss(self, c, d, margin, reg_norm):
         rc = tf.math.abs(c[:, -1])
         rd = tf.math.abs(d[:, -1])
         c = c[:, 0:-1]
         d = d[:, 0:-1]
         euc = tf.norm(c - d, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd), [-1, 1])
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd - margin), [-1, 1])
         # Regularization
-        reg = tf.abs(tf.norm(c, axis=1) - 1) + tf.abs(tf.norm(d, axis=1) - 1)
+        reg = tf.abs(tf.norm(c, axis=1) - reg_norm) + tf.abs(tf.norm(d, axis=1) - reg_norm)
         reg = tf.reshape(reg, [-1, 1])
         return dst + reg
     
-    def nf1_loss(self, input):
+    def nf1_loss(self, input, margin, reg_norm):
         c = input[:, 0]
         d = input[:, 1]
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
-        return self.loss(c, d)
+        return self.loss(c, d, margin, reg_norm)
     
-    def nf2_loss(self, input):
+    def nf2_loss(self, input, margin, reg_norm):
         c = input[:, 0]
         d = input[:, 1]
         e = input[:, 2]
@@ -156,19 +158,19 @@ class ELModel(tf.keras.Model):
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
         dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
-        rdst = tf.nn.relu(tf.math.maximum(rc, rd) - re)
+        rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
         dst_loss = (tf.nn.relu(dst - sr)
                 + tf.nn.relu(dst2 - rc)
                 + tf.nn.relu(dst3 - rd)
                 + rdst)
-        reg = (tf.abs(tf.norm(x1, axis=1) - 1)
-               + tf.abs(tf.norm(x2, axis=1) - 1)
-               + tf.abs(tf.norm(x3, axis=1) - 1))
+        reg = (tf.abs(tf.norm(x1, axis=1) - reg_norm)
+               + tf.abs(tf.norm(x2, axis=1) - reg_norm)
+               + tf.abs(tf.norm(x3, axis=1) - reg_norm))
         reg = tf.reshape(reg, [-1, 1])
         return dst_loss + reg
         
                 
-    def nf3_loss(self, input):
+    def nf3_loss(self, input, margin, reg_norm):
         # C subClassOf R some D
         c = input[:, 0]
         r = input[:, 1]
@@ -178,9 +180,9 @@ class ELModel(tf.keras.Model):
         r = self.rel_embeddings(r)
         r = tf.concat([r, tf.zeros((r.shape[0], 1), dtype=tf.float32)], 1)
         c = c + r
-        return self.loss(c, d)
+        return self.loss(c, d, margin, reg_norm)
 
-    def nf4_loss(self, input):
+    def nf4_loss(self, input, margin, reg_norm):
         # R some C subClassOf D
         r = input[:, 0]
         c = input[:, 1]
@@ -198,13 +200,13 @@ class ELModel(tf.keras.Model):
         x2 = d[:, 0:-1]
         x = x2 - x1
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-        dst_loss = tf.nn.relu(dst - sr)
-        reg = tf.abs(tf.norm(x1, axis=1) - 1) + tf.abs(tf.norm(x2, axis=1) - 1)
+        dst_loss = tf.nn.relu(dst - sr - margin)
+        reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
         reg = tf.reshape(reg, [-1, 1])
         return dst_loss + reg
     
 
-    def dis_loss(self, input, margin=0.1):
+    def dis_loss(self, input, margin, reg_norm):
         c = input[:, 0]
         d = input[:, 1]
         c = self.cls_embeddings(c)
@@ -216,7 +218,7 @@ class ELModel(tf.keras.Model):
         x2 = d[:, 0:-1]
         x = x2 - x1
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-        reg = tf.abs(tf.norm(x1, axis=1) - 1) + tf.abs(tf.norm(x2, axis=1) - 1)
+        reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
         reg = tf.reshape(reg, [-1, 1])
         return tf.nn.relu(sr - dst - margin) + reg
         
@@ -264,7 +266,7 @@ class Generator(object):
             raise StopIteration()
 
 
-def load_data(filename):
+def load_data(filename, index=True):
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
@@ -286,10 +288,14 @@ def load_data(filename):
                     classes[d] = len(classes)
                 if e not in classes:
                     classes[e] = len(classes)
+                form = 'nf2'
                 if e == 'owl:Nothing':
-                    data['disjoint'].append((classes[c], classes[d], classes[e]))
+                    form = 'disjoint'
+                if index:
+                    data[form].append((classes[c], classes[d], classes[e]))
                 else:
-                    data['nf2'].append((classes[c], classes[d], classes[e]))
+                    data[form].append((c, d, e))
+                
             elif line.startswith('ObjectSomeValuesFrom('):
                 # R some C SubClassOf D
                 it = line.split(' ')
@@ -302,7 +308,10 @@ def load_data(filename):
                     classes[d] = len(classes)
                 if r not in relations:
                     relations[r] = len(relations)
-                data['nf4'].append((relations[r], classes[c], classes[d]))
+                if index:
+                    data['nf4'].append((relations[r], classes[c], classes[d]))
+                else:
+                    data['nf4'].append((r, c, d))
             elif line.find('ObjectSomeValuesFrom') != -1:
                 # C SubClassOf R some D
                 it = line.split(' ')
@@ -315,7 +324,10 @@ def load_data(filename):
                     classes[d] = len(classes)
                 if r not in relations:
                     relations[r] = len(relations)
-                data['nf3'].append((classes[c], relations[r], classes[d]))
+                if index:
+                    data['nf3'].append((classes[c], relations[r], classes[d]))
+                else:
+                    data['nf3'].append((c, r, d))
             else:
                 # C SubClassOf D
                 it = line.split(' ')
@@ -325,9 +337,11 @@ def load_data(filename):
                     classes[c] = len(classes)
                 if d not in classes:
                     classes[d] = len(classes)
-                data['nf1'].append(
-                    (classes[c], classes[d]))
-                
+                if index:
+                    data['nf1'].append((classes[c], classes[d]))
+                else:
+                    data['nf1'].append((c, d))
+
     data['nf1'] = np.array(data['nf1'])
     data['nf2'] = np.array(data['nf2'])
     data['nf3'] = np.array(data['nf3'])
