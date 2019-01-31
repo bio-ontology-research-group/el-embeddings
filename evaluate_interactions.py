@@ -50,7 +50,7 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
     
-    data = load_data(data_file, classes, relations)[:1000]
+    data = load_data(data_file, classes, relations)
     top10 = 0
     top100 = 0
     mean_rank = 0
