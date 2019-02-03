@@ -37,6 +37,11 @@ class Ontology(object):
     def has_term(self, term_id):
         return term_id in self.ont
 
+    def get(self, term_id):
+        if self.has_term(term_id):
+            return self.ont[term_id]
+        return None
+
     def load(self, filename, with_rels):
         ont = dict()
         obj = None

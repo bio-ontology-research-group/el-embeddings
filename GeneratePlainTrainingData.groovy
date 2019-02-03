@@ -73,7 +73,7 @@ new File(opt.i).splitEachLine("\t") { line ->
 	def id1 = line[0]
 	def id2 = line[1]
 	def rel = line[2]
-	def score = new Integer(line[-1])
+	def score = 700 //new Integer(line[-1])
 	if (score >= 700) {  // only use high-confidence predictions
 	    idset.add(id1)
 	    idset.add(id2)
@@ -87,7 +87,7 @@ new File("data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
     def id = line[0]+"."+line[1]
     def go = "<"+line[3]+">"
     if (id in idset) {
-	fout.println("<http://$id> $hasFunction $go .")
+	fout.println("<http://$id> $hasFunction <http://$go> .")
     }
 }
 

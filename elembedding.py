@@ -18,6 +18,9 @@ tf.enable_eager_execution()
     '--data-file', '-df', default='go-normalized.txt',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
+    '--neg-data-file', '-ndf', default='data/go-negatives.txt',
+    help='Negative subclass relations (generate_negatives.py)')
+@ck.option(
     '--out-classes-file', '-ocf', default='data/cls_embeddings.pkl',
     help='Pandas pkl file with class embeddings')
 @ck.option(
@@ -35,9 +38,9 @@ tf.enable_eager_execution()
 @ck.option(
     '--embedding-size', '-es', default=100,
     help='Embeddings size')
-def main(data_file, out_classes_file, out_relations_file,
+def main(data_file, neg_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size):
-    data, classes, relations = load_data(data_file)
+    data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
     nb_relations = len(relations)
     nb_data = 0
@@ -220,8 +223,23 @@ class ELModel(tf.keras.Model):
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
         reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
         reg = tf.reshape(reg, [-1, 1])
-        return tf.nn.relu(sr - dst - margin) + reg
-        
+        return tf.nn.relu(sr - dst + margin) + reg
+
+    def neg_loss(self, input, margin, reg_norm):
+        c = input[:, 0]
+        d = input[:, 1]
+        c = self.cls_embeddings(c)
+        d = self.cls_embeddings(d)
+        rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
+        rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
+        x1 = c[:, 0:-1]
+        x2 = d[:, 0:-1]
+        x = x2 - x1
+        dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
+        reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
+        reg = tf.reshape(reg, [-1, 1])
+        return tf.nn.relu(rd - rc - dst + margin) + reg
+    
         
 
 class Generator(object):
@@ -266,7 +284,7 @@ class Generator(object):
             raise StopIteration()
 
 
-def load_data(filename, index=True):
+def load_data(filename, filename_neg, index=True):
     classes = {}
     relations = {}
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
@@ -347,6 +365,23 @@ def load_data(filename, index=True):
     data['nf3'] = np.array(data['nf3'])
     data['nf4'] = np.array(data['nf4'])
     data['disjoint'] = np.array(data['disjoint'])
+
+    data['negatives'] = []
+    with open(filename_neg, 'r') as f:
+        for line in f:
+            it = line.strip().split()
+            c = it[0]
+            d = it[1]
+            if c not in classes:
+                classes[c] = len(classes)
+            if d not in classes:
+                classes[d] = len(classes)
+            if index:
+                data['negatives'].append((classes[c], classes[d]))
+            else:
+                data['negatives'].append((c, d))
+    data['negatives'] = np.array(data['negatives'])
+    
     return data, classes, relations
 
 if __name__ == '__main__':

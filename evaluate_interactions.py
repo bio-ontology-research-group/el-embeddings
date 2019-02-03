@@ -22,10 +22,10 @@ logging.basicConfig(level=logging.INFO)
     '--data-file', '-df', default='data/data-test/4932.protein.actions.v11.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/yeast_cls_embeddings.pkl',
+    '--cls-embeds-file', '-cef', default='data/data-train/yeast_cls_embeddings.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/yeast_rel_embeddings.pkl',
+    '--rel-embeds-file', '-ref', default='data/data-train/yeast_rel_embeddings.pkl',
     help='Relation embedings file')
 def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     go = Ontology(go_file, with_rels=False)
