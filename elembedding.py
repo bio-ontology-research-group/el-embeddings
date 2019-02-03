@@ -38,8 +38,18 @@ tf.enable_eager_execution()
 @ck.option(
     '--embedding-size', '-es', default=100,
     help='Embeddings size')
+@ck.option(
+    '--reg-norm', '-rn', default=1,
+    help='Regularization norm')
+@ck.option(
+    '--margin', '-m', default=0.01,
+    help='Loss margin')
+@ck.option(
+    '--learning-rate', '-lr', default=0.01,
+    help='Learning rate')
 def main(data_file, neg_data_file, out_classes_file, out_relations_file,
-         batch_size, epochs, device, embedding_size):
+         batch_size, epochs, device, embedding_size, reg_norm, margin,
+         learning_rate):
     data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
     nb_relations = len(relations)
@@ -53,8 +63,8 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
     rel_dict = {v: k for k, v in relations.items()}
     
     with tf.device('/' + device):
-        model = ELModel(nb_classes, nb_relations, embedding_size)
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
+        model = ELModel(nb_classes, nb_relations, embedding_size, margin, reg_norm)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         loss_history = []
         for epoch in range(epochs):
             loss = 0.0
