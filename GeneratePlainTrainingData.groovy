@@ -85,7 +85,7 @@ new File(opt.i).splitEachLine("\t") { line ->
 def hasFunction = "<http://hasFunction>"
 new File("data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
     def id = line[0]+"."+line[1]
-    def go = "<"+line[3]+">"
+    def go = line[3]
     if (id in idset) {
 	fout.println("<http://$id> $hasFunction <http://$go> .")
     }
