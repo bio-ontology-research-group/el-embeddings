@@ -115,13 +115,14 @@ class ELModel(tf.keras.Model):
             
     def call(self, input):
         """Run the model."""
-        nf1, nf2, nf3, nf4, dis = input
+        nf1, nf2, nf3, nf4, dis, neg = input
         loss1 = self.nf1_loss(nf1, self.margin, self.reg_norm)
         loss2 = self.nf2_loss(nf2, self.margin, self.reg_norm)
         loss3 = self.nf3_loss(nf3, self.margin, self.reg_norm)
         loss4 = self.nf4_loss(nf4, self.margin, self.reg_norm)
         loss_dis = self.dis_loss(dis, self.margin, self.reg_norm)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis
+        loss_neg = self.neg_loss(dis, self.margin, self.reg_norm)
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_neg
         return loss
    
     def loss(self, c, d, margin, reg_norm):
@@ -271,14 +272,17 @@ class Generator(object):
                 self.data['nf4'].shape[0], self.batch_size)
             dis_index = np.random.choice(
                 self.data['disjoint'].shape[0], self.batch_size)
+            neg_index = np.random.choice(
+                self.data['negatives'].shape[0], self.batch_size)
             nf1 = tf.convert_to_tensor(self.data['nf1'][nf1_index])
             nf2 = tf.convert_to_tensor(self.data['nf2'][nf2_index])
             nf3 = tf.convert_to_tensor(self.data['nf3'][nf3_index])
             nf4 = tf.convert_to_tensor(self.data['nf4'][nf4_index])
             dis = tf.convert_to_tensor(self.data['disjoint'][dis_index])
+            neg = tf.convert_to_tensor(self.data['negatives'][neg_index])
             labels = tf.zeros((self.batch_size, 1), dtype=tf.float32)
             self.start += 1
-            return ((nf1, nf2, nf3, nf4, dis), labels)
+            return ((nf1, nf2, nf3, nf4, dis, neg), labels)
         else:
             self.reset()
             raise StopIteration()
