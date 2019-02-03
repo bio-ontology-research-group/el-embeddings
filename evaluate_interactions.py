@@ -51,6 +51,7 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
         rembeds[i, :] = emb
     
     data = load_data(data_file, classes, relations)
+    top1 = 0
     top10 = 0
     top100 = 0
     mean_rank = 0
@@ -77,13 +78,15 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
                     break
                 if res[nd] != 1.0:
                     rank += 1
+            if rank == 1:
+                top1 += 1
             if rank <= 10:
                 top10 += 1
             if rank <= 100:
                 top100 += 1
             mean_rank += rank
-        print(top10, top100, mean_rank)    
-        print(top10 / n, top100 / n, mean_rank / n)
+        print(top1, top10, top100, mean_rank)
+        print(top1 / n, top10 / n, top100 / n, mean_rank / n)
     
 def load_data(data_file, classes, relations):
     data = []
