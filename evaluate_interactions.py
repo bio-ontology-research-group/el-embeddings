@@ -46,10 +46,14 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     for k, v in classes.items():
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
-
     rs = np.abs(embeds[:, -1]).reshape(-1, 1)
     embeds = embeds[:, :-1]
 
+    prot_index = list(proteins.values())
+    prot_rs = rs[prot_index, :]
+    prot_embeds = embeds[prot_index, :]
+    prot_dict = {v: k for k, v in enumerate(prot_index)}
+    
     rsize = len(rembeds_list[0])
     rembeds = np.zeros((nb_relations, rsize), dtype=np.float32)
     for i, emb in enumerate(rembeds_list):
@@ -64,16 +68,16 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     margin = 0.01
     with ck.progressbar(data) as prog_data:
         for c, r, d in prog_data:
-            c, r, d = classes[c], relations[r], classes[d]
-            ec = embeds[c, :]
-            rc = rs[c, :]
+            c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+            ec = prot_embeds[c, :]
+            rc = prot_rs[c, :]
             er = rembeds[r, :]
             ec += er
 
-            dst = np.linalg.norm(embeds - ec.reshape(1, -1), axis=1)
+            dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
             dst = dst.reshape(-1, 1)
-            overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - rs - margin, 0)) / (2 * rc))
-            edst = np.maximum(0, dst - rc - rs - margin)
+            overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
+            edst = np.maximum(0, dst - rc - prot_rs - margin)
             res = (overlap + 1 / np.exp(edst)) / 2
             res = res.flatten()
             index = np.argsort(res)[::-1]
