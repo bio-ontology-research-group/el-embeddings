@@ -12,6 +12,7 @@ from utils import Ontology, FUNC_DICT
 from sklearn.manifold import TSNE
 from sklearn.metrics import roc_curve, auc, matthews_corrcoef
 import matplotlib.pyplot as plt
+from scipy.stats import rankdata
 
 logging.basicConfig(level=logging.INFO)
 
@@ -89,13 +90,8 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
             res = (overlap + 1 / np.exp(edst)) / 2
             res = res.flatten()
             preds[r][c, :] = res
-            index = np.argsort(res)[::-1]
-            rank = 1
-            for i, nd in enumerate(index):
-                if nd == d:
-                    break
-                if res[nd] != 1.0:
-                    rank += 1
+            index = rankdata(-res, method='average')
+            rank = index[d]
             if rank == 1:
                 top1 += 1
             if rank <= 10:
