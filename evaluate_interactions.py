@@ -10,6 +10,7 @@ from collections import deque
 from utils import Ontology, FUNC_DICT
 
 from sklearn.manifold import TSNE
+from sklearn.metrics import roc_curve, auc, matthews_corrcoef
 import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.INFO)
@@ -66,9 +67,16 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     mean_rank = 0
     n = len(data)
     margin = 0.01
+    labels = {}
+    preds = {}
     with ck.progressbar(data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+            if r not in labels:
+                labels[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+            if r not in preds:
+                preds[r] = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.float32)
+            labels[r][c, d] = 1
             ec = prot_embeds[c, :]
             rc = prot_rs[c, :]
             er = rembeds[r, :]
@@ -80,6 +88,7 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
             edst = np.maximum(0, dst - rc - prot_rs - margin)
             res = (overlap + 1 / np.exp(edst)) / 2
             res = res.flatten()
+            preds[r][c, :] = res
             index = np.argsort(res)[::-1]
             rank = 1
             for i, nd in enumerate(index):
@@ -96,6 +105,44 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
             mean_rank += rank
         print(top1, top10, top100, mean_rank)
         print(top1 / n, top10 / n, top100 / n, mean_rank / n)
+    for i, l in labels.items():
+        p = preds[i]
+        roc_auc = compute_roc(l, p)
+        fmax = compute_fmax(l, p)
+        print(i, roc_auc, fmax)
+        
+def compute_roc(labels, preds):
+    # Compute ROC curve and ROC area for each class
+    fpr, tpr, _ = roc_curve(labels.flatten(), preds.flatten())
+    roc_auc = auc(fpr, tpr)
+    return roc_auc
+
+def compute_fmax(labels, preds):
+    fmax = 0.0
+    pmax = 0.0
+    rmax = 0.0
+    tmax = 0
+    tpmax = 0
+    fpmax = 0
+    fnmax = 0
+    for t in range(101):
+        th = t / 100
+        predictions = (preds >= th).astype(np.int32)
+        tp = np.sum(labels & predictions)
+        fp = np.sum(predictions) - tp
+        fn = np.sum(labels) - tp
+        p = tp / (tp + fp)
+        r = tp / (tp + fn)
+        if p + r == 0:
+            continue
+        f = 2 * (p * r) / (p + r)
+        if f > fmax:
+            fmax = f
+            pmax = p
+            rmax = r
+            tmax = t
+            tpmax, fpmax, fnmax = tp, fp, fn
+    return fmax, pmax, rmax, tmax, tpmax, fpmax, fnmax
     
 def load_data(data_file, classes, relations):
     data = []
