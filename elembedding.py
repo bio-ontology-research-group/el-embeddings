@@ -47,9 +47,31 @@ tf.enable_eager_execution()
 @ck.option(
     '--learning-rate', '-lr', default=0.01,
     help='Learning rate')
+@ck.option(
+    '--params-array-index', '-pai', default=-1,
+    help='Params array index')
 def main(data_file, neg_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
-         learning_rate):
+         learning_rate, params_array_index):
+    # SLURM JOB ARRAY INDEX
+    if params_array_index != -1:
+        orgs = ['human', 'yeast']
+        sizes = [50, 100, 200]
+        margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
+        reg_norms = [1, 2]
+        reg_norm = reg_norms[params_array_index % 2]
+        params_array_index //= 2
+        margin = margins[params_array_index % 5]
+        params_array_index //= 5
+        embedding_size = sizes[params_array_index % 3]
+        params_array_index //= 3
+        org = orgs[params_array_index % 2]
+        print('Params:', org, embedding_size, margin, reg_norm)
+        
+        data_file = f'data/data-train/{org}-classes-normalized.owl'
+        out_classes_file = f'data/{org}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        out_relations_file = f'data/{org}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        
     data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
     nb_relations = len(relations)
@@ -304,6 +326,9 @@ def load_data(filename, filename_neg, index=True):
     data = {'nf1': [], 'nf2': [], 'nf3': [], 'nf4': [], 'disjoint': []}
     with open(filename) as f:
         for line in f:
+            # Ignore SubObjectPropertyOf
+            if line.startswith('SubObjectPropertyOf'):
+                continue
             # Ignore SubClassOf()
             line = line.strip()[11:-1]
             if not line:

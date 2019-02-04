@@ -42,6 +42,11 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     embeds = np.zeros((nb_classes, size), dtype=np.float32)
     for i, emb in enumerate(embeds_list):
         embeds[i, :] = emb
+    proteins = {}
+    for k, v in classes.items():
+        if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
+            proteins[k] = v
+
     rs = np.abs(embeds[:, -1]).reshape(-1, 1)
     embeds = embeds[:, :-1]
 
