@@ -23,6 +23,9 @@ logging.basicConfig(level=logging.INFO)
     '--data-file', '-df', default='go-normalized.txt',
     help='Data file')
 @ck.option(
+    '--neg-data-file', '-ndf', default='data/go-negatives.txt',
+    help='Negative subclass relations (generate_negatives.py)')
+@ck.option(
     '--cls-embeds-file', '-cef', default='data/cls_embeddings.pkl',
     help='Class embedings file')
 @ck.option(
@@ -31,7 +34,7 @@ logging.basicConfig(level=logging.INFO)
 @ck.option(
     '--margin', '-m', default=0.01,
     help='Margin parameter used for training')
-def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
+def main(go_file, data_file, neg_data_file, cls_embeds_file, rel_embeds_file, margin):
     go = Ontology(go_file, with_rels=False)
 
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -54,7 +57,7 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
     
-    data, _, _ = load_data(data_file, index=False)
+    data, _, _ = load_data(data_file, neg_data_file, index=False)
     
     print(relations)
     # Evaluate normal form 1 axioms
@@ -111,7 +114,7 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
         if c not in classes or d not in classes or r not in relations:
             continue
         c, r, d = classes[c], relations[r], classes[d]
-        if r not in [2, 4, 6, 8, 9, 10, 14]:
+        if r not in [1, 2, 3, 5, 8, 10, 14]:
             continue
         n += 1
         ec = embeds[c, :]

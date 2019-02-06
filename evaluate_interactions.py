@@ -29,7 +29,10 @@ logging.basicConfig(level=logging.INFO)
 @ck.option(
     '--rel-embeds-file', '-ref', default='data/data-train/yeast_rel_embeddings.pkl',
     help='Relation embedings file')
-def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
+@ck.option(
+    '--margin', '-m', default=0.01,
+    help='Loss margin')
+def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
     go = Ontology(go_file, with_rels=False)
 
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -67,7 +70,6 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
     top100 = 0
     mean_rank = 0
     n = len(data)
-    margin = 0.01
     labels = {}
     preds = {}
     with ck.progressbar(data) as prog_data:
@@ -99,14 +101,21 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file):
             if rank <= 100:
                 top100 += 1
             mean_rank += rank
-        print(top1, top10, top100, mean_rank)
+        print()
         print(top1 / n, top10 / n, top100 / n, mean_rank / n)
+    gl = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+    gp = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
     for i, l in labels.items():
         p = preds[i]
-        roc_auc = compute_roc(l, p)
-        fmax = compute_fmax(l, p)
-        print(i, roc_auc, fmax)
-        
+        gl = np.maximum(gl, l)
+        gp = np.maximum(gp, p)
+        # roc_auc = compute_roc(l, p)
+        # fmax = compute_fmax(l, p)
+        # print(rel_df['relations'][i], roc_auc)
+        # print(fmax)
+    print('Global', compute_roc(gl, gp))
+    print(np.mean(np.sum(gp == 1.0, axis=1)))
+    
 def compute_roc(labels, preds):
     # Compute ROC curve and ROC area for each class
     fpr, tpr, _ = roc_curve(labels.flatten(), preds.flatten())

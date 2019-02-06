@@ -69,8 +69,8 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         print('Params:', org, embedding_size, margin, reg_norm)
         
         data_file = f'data/data-train/{org}-classes-normalized.owl'
-        out_classes_file = f'data/{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        out_relations_file = f'data/{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        out_classes_file = f'data/noneg_{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        out_relations_file = f'data/noneg_{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
         
     data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
@@ -159,8 +159,8 @@ class ELModel(tf.keras.Model):
         loss3 = self.nf3_loss(nf3, self.margin, self.reg_norm)
         loss4 = self.nf4_loss(nf4, self.margin, self.reg_norm)
         loss_dis = self.dis_loss(dis, self.margin, self.reg_norm)
-        loss_neg = self.neg_loss(dis, self.margin, self.reg_norm)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_neg
+        # loss_neg = self.neg_loss(dis, self.margin, self.reg_norm)
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis # + loss_neg
         return loss
    
     def loss(self, c, d, margin, reg_norm):
