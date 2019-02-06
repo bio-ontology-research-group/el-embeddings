@@ -69,8 +69,8 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         print('Params:', org, embedding_size, margin, reg_norm)
         
         data_file = f'data/data-train/{org}-classes-normalized.owl'
-        out_classes_file = f'data/{org}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        out_relations_file = f'data/{org}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        out_classes_file = f'data/{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        out_relations_file = f'data/{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
         
     data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
@@ -88,6 +88,7 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         model = ELModel(nb_classes, nb_relations, embedding_size, margin, reg_norm)
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         loss_history = []
+        best_loss = 1000.0
         for epoch in range(epochs):
             loss = 0.0
             for batch, batch_data in enumerate(generator):
@@ -102,10 +103,15 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
                 optimizer.apply_gradients(
                     zip(grads, model.variables),
                     global_step=tf.train.get_or_create_global_step())
-            print(f'Epoch {epoch}: {loss / steps}')
+            if math.isnan(loss):
+                print('NaN loss, exiting')
+                break
+            loss /= steps
+            print(f'Epoch {epoch}: {loss}')
 
             # Save embeddings every 10 epochs and at the end
-            if epoch % 10 == 0 or epoch == epochs - 1:
+            if (epoch % 10 == 0 or epoch == epochs - 1) and best_loss > loss:
+                logging.info(f'Loss improved from {best_loss} to {loss}')
                 logging.info(f'Saving embeddings')
                 cls_embeddings = model.cls_embeddings(
                     tf.range(nb_classes)).numpy()
