@@ -112,6 +112,7 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
             # Save embeddings every 10 epochs and at the end
             if (epoch % 10 == 0 or epoch == epochs - 1) and best_loss > loss:
                 logging.info(f'Loss improved from {best_loss} to {loss}')
+                best_loss = loss
                 logging.info(f'Saving embeddings')
                 cls_embeddings = model.cls_embeddings(
                     tf.range(nb_classes)).numpy()

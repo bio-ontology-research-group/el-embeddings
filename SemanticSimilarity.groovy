@@ -70,9 +70,7 @@ GraphActionExecutor.applyAction(factory, rooting, graph)
 
 // Load proteins
 def proteins = new HashMap<String, Set<String> >()
-def i = 0
 new File(opt.is).splitEachLine('\t') { items ->
-    def s = 0
     if (!proteins.containsKey(items[0])) {
 	proteins[items[0]] = new HashSet<String>()
     }
@@ -139,7 +137,7 @@ smConfPairwise.addParam("ic_prob", prob);
 // }
 
 def n = proteins.size()
-def proteinsList = proteins.keys().toArray(new String[n])
+def proteinsList = proteins.keySet().toArray(new String[n])
 def result = new Double[n][n]
 def index = new Integer[n * n]
 for (int i = 0; i < index.size(); i++) {
