@@ -32,8 +32,35 @@ logging.basicConfig(level=logging.INFO)
 @ck.option(
     '--margin', '-m', default=0.01,
     help='Loss margin')
-def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
+@ck.option(
+    '--params-array-index', '-pai', default=-1,
+    help='Params array index')
+def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
+         params_array_index):
+    embedding_size = 100
+    reg_norm = 1
+    org = 'yeast'
     go = Ontology(go_file, with_rels=False)
+    pai = params_array_index
+    if params_array_index != -1:
+        orgs = ['human', 'yeast']
+        sizes = [50, 100, 200]
+        margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
+        reg_norms = [1, 2]
+        reg_norm = reg_norms[params_array_index % 2]
+        params_array_index //= 2
+        margin = margins[params_array_index % 5]
+        params_array_index //= 5
+        embedding_size = sizes[params_array_index % 3]
+        params_array_index //= 3
+        org = orgs[params_array_index % 2]
+        print('Params:', org, embedding_size, margin, reg_norm)
+        if org == 'human':
+            pai = 0
+            data_file = f'data/data-test/9606.protein.actions.v11.txt'
+        pai = 1
+        cls_embeds_file = f'data/noneg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        rel_embeds_file = f'data/noneg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
 
     cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
@@ -101,8 +128,10 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
             if rank <= 100:
                 top100 += 1
             mean_rank += rank
-        print()
-        print(top1 / n, top10 / n, top100 / n, mean_rank / n)
+    top1 /= n
+    top10 /= n
+    top100 /= n
+    mean_rank /= n
     gl = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
     gp = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
     for i, l in labels.items():
@@ -113,8 +142,10 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin):
         # fmax = compute_fmax(l, p)
         # print(rel_df['relations'][i], roc_auc)
         # print(fmax)
-    print('Global', compute_roc(gl, gp))
-    print(np.mean(np.sum(gp == 1.0, axis=1)))
+    print()
+    roc_auc = compute_roc(gl, gp)
+    print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {roc_auc:.2f}')
+    
     
 def compute_roc(labels, preds):
     # Compute ROC curve and ROC area for each class

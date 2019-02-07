@@ -152,7 +152,7 @@ GParsPool.withPool {
 	def x = i.intdiv(n)
 	def y = i % n
 	if (x <= y) {
-	    if (proteins[proteinsList[x]].size() > 0 && proteins[proteinsList[x]].size() > 0) {
+	    if (proteins[proteinsList[x]].size() > 0 && proteins[proteinsList[y]].size() > 0) {
 		result[x][y] = engine.compare(
 		    smConfGroupwise,
 		    smConfPairwise,

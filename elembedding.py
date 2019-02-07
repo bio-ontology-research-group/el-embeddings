@@ -50,10 +50,14 @@ tf.enable_eager_execution()
 @ck.option(
     '--params-array-index', '-pai', default=-1,
     help='Params array index')
+@ck.option(
+    '--loss-history-file', '-lhf', default='data/loss_history.pkl',
+    help='Pandas pkl file with loss history')
 def main(data_file, neg_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
-         learning_rate, params_array_index):
+         learning_rate, params_array_index, loss_history_file):
     # SLURM JOB ARRAY INDEX
+    pai = params_array_index
     if params_array_index != -1:
         orgs = ['human', 'yeast']
         sizes = [50, 100, 200]
@@ -69,8 +73,9 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         print('Params:', org, embedding_size, margin, reg_norm)
         
         data_file = f'data/data-train/{org}-classes-normalized.owl'
-        out_classes_file = f'data/noneg_{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        out_relations_file = f'data/noneg_{org}_{params_array_index}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        out_classes_file = f'data/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        out_relations_file = f'data/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        loss_history_file = f'data/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.pkl'
         
     data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
@@ -133,6 +138,9 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
                     {'relations': rel_list, 'embeddings': list(rel_embeddings)})
                 df.to_pickle(out_relations_file)
 
+                df = pd.DataFrame({'loss_history': loss_history})
+                df.to_pickle(loss_history_file)
+
 
 class ELModel(tf.keras.Model):
 
@@ -160,8 +168,8 @@ class ELModel(tf.keras.Model):
         loss3 = self.nf3_loss(nf3, self.margin, self.reg_norm)
         loss4 = self.nf4_loss(nf4, self.margin, self.reg_norm)
         loss_dis = self.dis_loss(dis, self.margin, self.reg_norm)
-        # loss_neg = self.neg_loss(dis, self.margin, self.reg_norm)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis # + loss_neg
+        loss_neg = self.neg_loss(neg, self.margin, self.reg_norm)
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_neg
         return loss
    
     def loss(self, c, d, margin, reg_norm):
