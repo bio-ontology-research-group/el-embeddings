@@ -115,7 +115,11 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
 
             dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
             dst = dst.reshape(-1, 1)
-            overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
+            if rc > 0:
+                overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
+            else:
+                overlap = (np.maximum(dst - prot_rs - margin, 0) == 0).astype('float32')
+            
             edst = np.maximum(0, dst - rc - prot_rs - margin)
             res = (overlap + 1 / np.exp(edst)) / 2
             res = res.flatten()
