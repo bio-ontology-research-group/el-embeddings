@@ -58,7 +58,8 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
         if org == 'human':
             pai = 0
             data_file = f'data/data-test/9606.protein.actions.v11.txt'
-        pai = 1
+        else:
+            pai = 1
         cls_embeds_file = f'data/noneg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
         rel_embeds_file = f'data/noneg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
 
