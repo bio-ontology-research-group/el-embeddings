@@ -8,10 +8,12 @@ import re
 import math
 import matplotlib.pyplot as plt
 import logging
+from tensorflow.keras.layers import (
+    Input,
+)
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
 
 logging.basicConfig(level=logging.INFO)
-
-tf.enable_eager_execution()
 
 @ck.command()
 @ck.option(
@@ -51,7 +53,7 @@ tf.enable_eager_execution()
     '--params-array-index', '-pai', default=-1,
     help='Params array index')
 @ck.option(
-    '--loss-history-file', '-lhf', default='data/loss_history.pkl',
+    '--loss-history-file', '-lhf', default='data/loss_history.csv',
     help='Pandas pkl file with loss history')
 def main(data_file, neg_data_file, out_classes_file, out_relations_file,
          batch_size, epochs, device, embedding_size, reg_norm, margin,
@@ -62,9 +64,8 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         orgs = ['human', 'yeast']
         sizes = [50, 100, 200]
         margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
-        reg_norms = [1, 2]
-        reg_norm = reg_norms[params_array_index % 2]
-        params_array_index //= 2
+        reg_norms = [1,]
+        reg_norm = reg_norms[0]
         margin = margins[params_array_index % 5]
         params_array_index //= 5
         embedding_size = sizes[params_array_index % 3]
@@ -73,9 +74,9 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         print('Params:', org, embedding_size, margin, reg_norm)
         
         data_file = f'data/data-train/{org}-classes-normalized.owl'
-        out_classes_file = f'data/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        out_relations_file = f'data/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
-        loss_history_file = f'data/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.pkl'
+        out_classes_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        out_relations_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
         
     data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
@@ -84,72 +85,55 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
     for key, val in data.items():
         nb_data = max(len(val), nb_data)
     steps = int(math.ceil(nb_data / (1.0 * batch_size)))
-    generator = Generator(data, steps=steps)
+    generator = Generator(data, batch_size, steps=steps)
 
     cls_dict = {v: k for k, v in classes.items()}
     rel_dict = {v: k for k, v in relations.items()}
-    
+
+    cls_list = []
+    rel_list = []
+    for i in range(nb_classes):
+        cls_list.append(cls_dict[i])
+    for i in range(nb_relations):
+        rel_list.append(rel_dict[i])
+
     with tf.device('/' + device):
-        model = ELModel(nb_classes, nb_relations, embedding_size, margin, reg_norm)
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-        loss_history = []
-        best_loss = 1000.0
-        for epoch in range(epochs):
-            loss = 0.0
-            for batch, batch_data in enumerate(generator):
-                input, labels = batch_data
-                with tf.GradientTape() as tape:
-                    logits = model(input)
-                    loss_value = tf.losses.mean_squared_error(labels, logits)
-                    loss += loss_value.numpy()
-                print(f'Batch loss {loss_value.numpy()}', end='\r', flush=True)    
-                loss_history.append(loss_value.numpy())
-                grads = tape.gradient(loss_value, model.variables)
-                optimizer.apply_gradients(
-                    zip(grads, model.variables),
-                    global_step=tf.train.get_or_create_global_step())
-            if math.isnan(loss):
-                print('NaN loss, exiting')
-                break
-            loss /= steps
-            print(f'Epoch {epoch}: {loss}')
+        nf1 = Input(shape=(2,), dtype=np.int32)
+        nf2 = Input(shape=(3,), dtype=np.int32)
+        nf3 = Input(shape=(3,), dtype=np.int32)
+        nf4 = Input(shape=(3,), dtype=np.int32)
+        dis = Input(shape=(3,), dtype=np.int32)
+        neg = Input(shape=(2,), dtype=np.int32)
+        el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
+        out = el_model([nf1, nf2, nf3, nf4, dis])
+        model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis], outputs=out)
+        model.compile(optimizer='sgd', loss='mse')
 
-            # Save embeddings every 10 epochs and at the end
-            if (epoch % 10 == 0 or epoch == epochs - 1) and best_loss > loss:
-                logging.info(f'Loss improved from {best_loss} to {loss}')
-                best_loss = loss
-                logging.info(f'Saving embeddings')
-                cls_embeddings = model.cls_embeddings(
-                    tf.range(nb_classes)).numpy()
-                rel_embeddings = model.rel_embeddings(
-                    tf.range(nb_relations)).numpy()
-                cls_list = []
-                rel_list = []
-                for i in range(nb_classes):
-                    cls_list.append(cls_dict[i])
-                for i in range(nb_relations):
-                    rel_list.append(rel_dict[i])
-
-                df = pd.DataFrame(
-                    {'classes': cls_list, 'embeddings': list(cls_embeddings)})
-                df.to_pickle(out_classes_file)
-
-                df = pd.DataFrame(
-                    {'relations': rel_list, 'embeddings': list(rel_embeddings)})
-                df.to_pickle(out_relations_file)
-
-                df = pd.DataFrame({'loss_history': loss_history})
-                df.to_pickle(loss_history_file)
+        checkpointer = MyModelCheckpoint(
+            out_classes_file=out_classes_file,
+            out_relations_file=out_relations_file,
+            cls_list=cls_list,
+            rel_list=rel_list,
+            monitor='loss')
+        earlystopper = EarlyStopping(monitor='loss', patience=16, verbose=1)
+        logger = CSVLogger(loss_history_file)
+        model.fit_generator(
+            generator,
+            steps_per_epoch=steps,
+            epochs=epochs,
+            workers=12,
+            callbacks=[logger, checkpointer])
 
 
 class ELModel(tf.keras.Model):
 
-    def __init__(self, nb_classes, nb_relations, embedding_size, margin=0.01, reg_norm=1):
+    def __init__(self, nb_classes, nb_relations, embedding_size, batch_size, margin=0.01, reg_norm=1):
         super(ELModel, self).__init__()
         self.nb_classes = nb_classes
         self.nb_relations = nb_relations
         self.margin = margin
         self.reg_norm = reg_norm
+        self.batch_size = batch_size
         
         self.cls_embeddings = tf.keras.layers.Embedding(
             nb_classes,
@@ -162,14 +146,14 @@ class ELModel(tf.keras.Model):
             
     def call(self, input):
         """Run the model."""
-        nf1, nf2, nf3, nf4, dis, neg = input
+        nf1, nf2, nf3, nf4, dis = input
         loss1 = self.nf1_loss(nf1, self.margin, self.reg_norm)
         loss2 = self.nf2_loss(nf2, self.margin, self.reg_norm)
         loss3 = self.nf3_loss(nf3, self.margin, self.reg_norm)
         loss4 = self.nf4_loss(nf4, self.margin, self.reg_norm)
         loss_dis = self.dis_loss(dis, self.margin, self.reg_norm)
-        loss_neg = self.neg_loss(neg, self.margin, self.reg_norm)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_neg
+        # loss_neg = self.neg_loss(neg, self.margin, self.reg_norm)
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis # + loss_neg
         return loss
    
     def loss(self, c, d, margin, reg_norm):
@@ -229,7 +213,7 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
         r = self.rel_embeddings(r)
-        r = tf.concat([r, tf.zeros((r.shape[0], 1), dtype=tf.float32)], 1)
+        r = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
         c = c + r
         return self.loss(c, d, margin, reg_norm)
 
@@ -241,7 +225,7 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
         r = self.rel_embeddings(r)
-        r = tf.concat([r, tf.zeros((r.shape[0], 1), dtype=tf.float32)], 1)
+        r = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
         c = c - r
         # c - r should intersect with d
         rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
@@ -273,21 +257,52 @@ class ELModel(tf.keras.Model):
         reg = tf.reshape(reg, [-1, 1])
         return tf.nn.relu(sr - dst + margin) + reg
 
-    def neg_loss(self, input, margin, reg_norm):
-        c = input[:, 0]
-        d = input[:, 1]
-        c = self.cls_embeddings(c)
-        d = self.cls_embeddings(d)
-        rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
-        rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
-        x1 = c[:, 0:-1]
-        x2 = d[:, 0:-1]
-        x = x2 - x1
-        dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-        reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
-        reg = tf.reshape(reg, [-1, 1])
-        return tf.nn.relu(rd - rc - dst + margin) + reg
+    # def neg_loss(self, input, margin, reg_norm):
+    #     c = input[:, 0]
+    #     d = input[:, 1]
+    #     c = self.cls_embeddings(c)
+    #     d = self.cls_embeddings(d)
+    #     rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
+    #     rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
+    #     x1 = c[:, 0:-1]
+    #     x2 = d[:, 0:-1]
+    #     x = x2 - x1
+    #     dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
+    #     reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
+    #     reg = tf.reshape(reg, [-1, 1])
+    #     return tf.nn.relu(rd - rc - dst + margin) + reg
     
+
+class MyModelCheckpoint(ModelCheckpoint):
+
+    def __init__(self, *args, **kwargs):
+        super(ModelCheckpoint, self).__init__()
+        self.out_classes_file = kwargs.pop('out_classes_file')
+        self.out_relations_file = kwargs.pop('out_relations_file')
+        self.monitor = kwargs.pop('monitor')
+        self.cls_list = kwargs.pop('cls_list')
+        self.rel_list = kwargs.pop('rel_list')
+        self.best = 1000
+   
+    def on_epoch_end(self, epoch, logs=None):
+        # Save embeddings every 10 epochs
+        current = logs.get(self.monitor)
+        if math.isnan(current):
+            return
+        if (epoch == 0 or (epoch + 1) % 10 == 0) and current < self.best:
+            print(f'\n Saving embeddings {epoch + 1} {current}\n')
+            el_model = self.model.layers[-1]
+            cls_embeddings = el_model.cls_embeddings.get_weights()[0]
+            rel_embeddings = el_model.rel_embeddings.get_weights()[0]
+        
+            df = pd.DataFrame(
+                {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
+            df.to_pickle(self.out_classes_file)
+                
+            df = pd.DataFrame(
+                {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
+            df.to_pickle(self.out_relations_file)
+
         
 
 class Generator(object):
@@ -319,20 +334,19 @@ class Generator(object):
                 self.data['nf4'].shape[0], self.batch_size)
             dis_index = np.random.choice(
                 self.data['disjoint'].shape[0], self.batch_size)
-            neg_index = np.random.choice(
-                self.data['negatives'].shape[0], self.batch_size)
-            nf1 = tf.convert_to_tensor(self.data['nf1'][nf1_index])
-            nf2 = tf.convert_to_tensor(self.data['nf2'][nf2_index])
-            nf3 = tf.convert_to_tensor(self.data['nf3'][nf3_index])
-            nf4 = tf.convert_to_tensor(self.data['nf4'][nf4_index])
-            dis = tf.convert_to_tensor(self.data['disjoint'][dis_index])
-            neg = tf.convert_to_tensor(self.data['negatives'][neg_index])
-            labels = tf.zeros((self.batch_size, 1), dtype=tf.float32)
+            # neg_index = np.random.choice(
+            #     self.data['negatives'].shape[0], self.batch_size)
+            nf1 = self.data['nf1'][nf1_index]
+            nf2 = self.data['nf2'][nf2_index]
+            nf3 = self.data['nf3'][nf3_index]
+            nf4 = self.data['nf4'][nf4_index]
+            dis = self.data['disjoint'][dis_index]
+            # neg = self.data['negatives'][neg_index]
+            labels = np.zeros((self.batch_size, 1), dtype=np.float32)
             self.start += 1
-            return ((nf1, nf2, nf3, nf4, dis, neg), labels)
+            return ([nf1, nf2, nf3, nf4, dis], labels)
         else:
             self.reset()
-            raise StopIteration()
 
 
 def load_data(filename, filename_neg, index=True):

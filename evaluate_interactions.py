@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import logging
 import math
+import os
 from collections import deque
 
 from utils import Ontology, FUNC_DICT
@@ -21,7 +22,10 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--data-file', '-df', default='data/data-test/4932.protein.actions.v11.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v11.txt',
+    help='')
+@ck.option(
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v11.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/data-train/yeast_cls_embeddings.pkl',
@@ -35,7 +39,7 @@ logging.basicConfig(level=logging.INFO)
 @ck.option(
     '--params-array-index', '-pai', default=-1,
     help='Params array index')
-def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
+def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_file, margin,
          params_array_index):
     embedding_size = 100
     reg_norm = 1
@@ -56,12 +60,18 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
         org = orgs[params_array_index % 2]
         print('Params:', org, embedding_size, margin, reg_norm)
         if org == 'human':
-            pai = 0
-            data_file = f'data/data-test/9606.protein.actions.v11.txt'
-        else:
-            pai = 1
-        cls_embeds_file = f'data/noneg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        rel_embeds_file = f'data/noneg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+            # pai = 0
+            train_data_file = f'data/data-train/9606.protein.actions.v11.txt'
+            test_data_file = f'data/data-test/9606.protein.actions.v11.txt'
+        # else:
+        #     pai = 1
+        cls_embeds_file = f'data/eldata/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        rel_embeds_file = f'data/eldata/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        loss_file = f'data/eldata/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.pkl'
+        if os.path.exists(loss_file):
+            df = pd.read_pickle(loss_file)
+            print('Loss:', df['loss_history'].values[-1])
+
 
     cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
@@ -81,7 +91,6 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
             proteins[k] = v
     rs = np.abs(embeds[:, -1]).reshape(-1, 1)
     embeds = embeds[:, :-1]
-
     prot_index = list(proteins.values())
     prot_rs = rs[prot_index, :]
     prot_embeds = embeds[prot_index, :]
@@ -91,16 +100,27 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
     rembeds = np.zeros((nb_relations, rsize), dtype=np.float32)
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
-    
-    data = load_data(data_file, classes, relations)
+    train_data = load_data(train_data_file, classes, relations)
+    trlabels = {}
+    for c, r, d in train_data:
+        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+        if r not in trlabels:
+            trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+        trlabels[r][c, d] = 0
+
+    test_data = load_data(test_data_file, classes, relations)
     top1 = 0
     top10 = 0
     top100 = 0
     mean_rank = 0
-    n = len(data)
+    ftop1 = 0
+    ftop10 = 0
+    ftop100 = 0
+    fmean_rank = 0
+    n = len(test_data)
     labels = {}
     preds = {}
-    with ck.progressbar(data) as prog_data:
+    with ck.progressbar(test_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
             if r not in labels:
@@ -133,10 +153,25 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
             if rank <= 100:
                 top100 += 1
             mean_rank += rank
+            # Filtered rank
+            index = rankdata(-(res * trlabels[r][c, :]), method='average')
+            rank = index[d]
+            if rank == 1:
+                ftop1 += 1
+            if rank <= 10:
+                ftop10 += 1
+            if rank <= 100:
+                ftop100 += 1
+            fmean_rank += rank
     top1 /= n
     top10 /= n
     top100 /= n
     mean_rank /= n
+    ftop1 /= n
+    ftop10 /= n
+    ftop100 /= n
+    fmean_rank /= n
+    
     gl = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
     gp = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
     for i, l in labels.items():
@@ -150,6 +185,7 @@ def main(go_file, data_file, cls_embeds_file, rel_embeds_file, margin,
     print()
     roc_auc = compute_roc(gl, gp)
     print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {roc_auc:.2f}')
+    print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {roc_auc:.2f}')
     
     
 def compute_roc(labels, preds):
