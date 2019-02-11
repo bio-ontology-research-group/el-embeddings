@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--data-file', '-df', default='go-normalized.txt',
+    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Data file')
 @ck.option(
     '--neg-data-file', '-ndf', default='data/go-negatives.txt',

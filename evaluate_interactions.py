@@ -22,10 +22,10 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v11.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v11.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v10.5.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/data-train/yeast_cls_embeddings.pkl',
@@ -50,9 +50,9 @@ def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_f
         orgs = ['human', 'yeast']
         sizes = [50, 100, 200]
         margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
-        reg_norms = [1, 2]
-        reg_norm = reg_norms[params_array_index % 2]
-        params_array_index //= 2
+        reg_norms = [1,]
+        reg_norm = reg_norms[0]
+        # params_array_index //= 2
         margin = margins[params_array_index % 5]
         params_array_index //= 5
         embedding_size = sizes[params_array_index % 3]
@@ -60,17 +60,14 @@ def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_f
         org = orgs[params_array_index % 2]
         print('Params:', org, embedding_size, margin, reg_norm)
         if org == 'human':
-            # pai = 0
-            train_data_file = f'data/data-train/9606.protein.actions.v11.txt'
-            test_data_file = f'data/data-test/9606.protein.actions.v11.txt'
-        # else:
-        #     pai = 1
-        cls_embeds_file = f'data/eldata/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        rel_embeds_file = f'data/eldata/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
-        loss_file = f'data/eldata/neg_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.pkl'
+            train_data_file = f'data/data-train/9606.protein.actions.v10.5.txt'
+            test_data_file = f'data/data-test/9606.protein.actions.v10.5.txt'
+        cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        loss_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
         if os.path.exists(loss_file):
-            df = pd.read_pickle(loss_file)
-            print('Loss:', df['loss_history'].values[-1])
+            df = pd.read_csv(loss_file)
+            print('Loss:', df['loss'].values[-1])
 
 
     cls_df = pd.read_pickle(cls_embeds_file)
@@ -90,6 +87,8 @@ def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_f
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
     rs = np.abs(embeds[:, -1]).reshape(-1, 1)
+    print(rs)
+    # return
     embeds = embeds[:, :-1]
     prot_index = list(proteins.values())
     prot_rs = rs[prot_index, :]

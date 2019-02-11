@@ -78,15 +78,21 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         out_relations_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
         loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
         
-    data, classes, relations = load_data(data_file, neg_data_file)
+    train_data, valid_data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
     nb_relations = len(relations)
-    nb_data = 0
-    for key, val in data.items():
-        nb_data = max(len(val), nb_data)
-    steps = int(math.ceil(nb_data / (1.0 * batch_size)))
-    generator = Generator(data, batch_size, steps=steps)
+    nb_train_data = 0
+    for key, val in train_data.items():
+        nb_train_data = max(len(val), nb_train_data)
+    train_steps = int(math.ceil(nb_train_data / (1.0 * batch_size)))
+    train_generator = Generator(train_data, batch_size, steps=train_steps)
 
+    nb_valid_data = 0
+    for key, val in valid_data.items():
+        nb_valid_data = max(len(val), nb_valid_data)
+    valid_steps = int(math.ceil(nb_valid_data / (1.0 * batch_size)))
+    valid_generator = Generator(valid_data, batch_size, steps=valid_steps)
+    
     cls_dict = {v: k for k, v in classes.items()}
     rel_dict = {v: k for k, v in relations.items()}
 
@@ -107,22 +113,24 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
         out = el_model([nf1, nf2, nf3, nf4, dis])
         model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis], outputs=out)
-        model.compile(optimizer='rmsprop', loss='mse')
+        model.compile(optimizer='adadelta', loss='mse')
 
         checkpointer = MyModelCheckpoint(
             out_classes_file=out_classes_file,
             out_relations_file=out_relations_file,
             cls_list=cls_list,
             rel_list=rel_list,
-            monitor='loss')
-        earlystopper = EarlyStopping(monitor='loss', patience=16, verbose=1)
+            monitor='val_loss')
+        earlystopper = EarlyStopping(monitor='val_loss', patience=50, verbose=1)
         logger = CSVLogger(loss_history_file)
         model.fit_generator(
-            generator,
-            steps_per_epoch=steps,
+            train_generator,
+            steps_per_epoch=train_steps,
             epochs=epochs,
+            validation_data=valid_generator,
+            validation_steps=valid_steps,
             workers=12,
-            callbacks=[logger, checkpointer])
+            callbacks=[logger, earlystopper, checkpointer])
 
 
 class ELModel(tf.keras.Model):
@@ -147,35 +155,37 @@ class ELModel(tf.keras.Model):
     def call(self, input):
         """Run the model."""
         nf1, nf2, nf3, nf4, dis = input
-        loss1 = self.nf1_loss(nf1, self.margin, self.reg_norm)
-        loss2 = self.nf2_loss(nf2, self.margin, self.reg_norm)
-        loss3 = self.nf3_loss(nf3, self.margin, self.reg_norm)
-        loss4 = self.nf4_loss(nf4, self.margin, self.reg_norm)
-        loss_dis = self.dis_loss(dis, self.margin, self.reg_norm)
-        # loss_neg = self.neg_loss(neg, self.margin, self.reg_norm)
+        loss1 = self.nf1_loss(nf1)
+        loss2 = self.nf2_loss(nf2)
+        loss3 = self.nf3_loss(nf3)
+        loss4 = self.nf4_loss(nf4)
+        loss_dis = self.dis_loss(dis)
+        # loss_neg = self.neg_loss(neg)
         loss = loss1 + loss2 + loss3 + loss4 + loss_dis # + loss_neg
         return loss
    
-    def loss(self, c, d, margin, reg_norm):
+    def loss(self, c, d):
         rc = tf.math.abs(c[:, -1])
         rd = tf.math.abs(d[:, -1])
         c = c[:, 0:-1]
         d = d[:, 0:-1]
         euc = tf.norm(c - d, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd - margin), [-1, 1])
-        # Regularization
-        reg = tf.abs(tf.norm(c, axis=1) - reg_norm) + tf.abs(tf.norm(d, axis=1) - reg_norm)
-        reg = tf.reshape(reg, [-1, 1])
-        return dst + reg
-    
-    def nf1_loss(self, input, margin, reg_norm):
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        return dst + self.reg(c) + self.reg(d)
+
+    def reg(self, x):
+        res = tf.abs(tf.norm(x, axis=1) - self.reg_norm)
+        res = tf.reshape(res, [-1, 1])
+        return res
+        
+    def nf1_loss(self, input):
         c = input[:, 0]
         d = input[:, 1]
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
-        return self.loss(c, d, margin, reg_norm)
+        return self.loss(c, d)
     
-    def nf2_loss(self, input, margin, reg_norm):
+    def nf2_loss(self, input):
         c = input[:, 0]
         d = input[:, 1]
         e = input[:, 2]
@@ -195,17 +205,12 @@ class ELModel(tf.keras.Model):
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
         rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
         dst_loss = (tf.nn.relu(dst - sr)
-                + tf.nn.relu(dst2 - rc)
-                + tf.nn.relu(dst3 - rd)
-                + rdst)
-        reg = (tf.abs(tf.norm(x1, axis=1) - reg_norm)
-               + tf.abs(tf.norm(x2, axis=1) - reg_norm)
-               + tf.abs(tf.norm(x3, axis=1) - reg_norm))
-        reg = tf.reshape(reg, [-1, 1])
-        return dst_loss + reg
-        
-                
-    def nf3_loss(self, input, margin, reg_norm):
+                    + tf.nn.relu(dst2 - rc)
+                    + tf.nn.relu(dst3 - rd)
+                    + rdst - self.margin)
+        return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
+
+    def nf3_loss(self, input):
         # C subClassOf R some D
         c = input[:, 0]
         r = input[:, 1]
@@ -213,11 +218,11 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
         r = self.rel_embeddings(r)
-        r = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
-        c = c + r
-        return self.loss(c, d, margin, reg_norm)
+        rd = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
+        c = c + rd
+        return self.loss(c, d) + self.reg(r)
 
-    def nf4_loss(self, input, margin, reg_norm):
+    def nf4_loss(self, input):
         # R some C subClassOf D
         r = input[:, 0]
         c = input[:, 1]
@@ -225,8 +230,8 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
         r = self.rel_embeddings(r)
-        r = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
-        c = c - r
+        rr = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
+        c = c - rr
         # c - r should intersect with d
         rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
         rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
@@ -235,13 +240,11 @@ class ELModel(tf.keras.Model):
         x2 = d[:, 0:-1]
         x = x2 - x1
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-        dst_loss = tf.nn.relu(dst - sr - margin)
-        reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
-        reg = tf.reshape(reg, [-1, 1])
-        return dst_loss + reg
+        dst_loss = tf.nn.relu(dst - sr - self.margin)
+        return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(r)
     
 
-    def dis_loss(self, input, margin, reg_norm):
+    def dis_loss(self, input):
         c = input[:, 0]
         d = input[:, 1]
         c = self.cls_embeddings(c)
@@ -253,9 +256,7 @@ class ELModel(tf.keras.Model):
         x2 = d[:, 0:-1]
         x = x2 - x1
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-        reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
-        reg = tf.reshape(reg, [-1, 1])
-        return tf.nn.relu(sr - dst + margin) + reg
+        return tf.nn.relu(sr - dst + self.margin) + self.reg(x1) + self.reg(x2)
 
     # def neg_loss(self, input, margin, reg_norm):
     #     c = input[:, 0]
@@ -268,9 +269,7 @@ class ELModel(tf.keras.Model):
     #     x2 = d[:, 0:-1]
     #     x = x2 - x1
     #     dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-    #     reg = tf.abs(tf.norm(x1, axis=1) - reg_norm) + tf.abs(tf.norm(x2, axis=1) - reg_norm)
-    #     reg = tf.reshape(reg, [-1, 1])
-    #     return tf.nn.relu(rd - rc - dst + margin) + reg
+    #     return tf.nn.relu(rd - rc - dst + self.margin) + self.reg(x1) + self.reg(x2)
     
 
 class MyModelCheckpoint(ModelCheckpoint):
@@ -289,7 +288,8 @@ class MyModelCheckpoint(ModelCheckpoint):
         current = logs.get(self.monitor)
         if math.isnan(current):
             return
-        if (epoch == 0 or (epoch + 1) % 10 == 0) and current < self.best:
+        if current < self.best:
+            self.best = current
             print(f'\n Saving embeddings {epoch + 1} {current}\n')
             el_model = self.model.layers[-1]
             cls_embeddings = el_model.cls_embeddings.get_weights()[0]
@@ -457,8 +457,19 @@ def load_data(filename, filename_neg, index=True):
             else:
                 data['negatives'].append((c, d))
     data['negatives'] = np.array(data['negatives'])
-    
-    return data, classes, relations
+
+    train_data = {}
+    valid_data = {}
+    split = 0.9
+    for key, val in data.items():
+        n = val.shape[0]
+        train_n = int(split * n)
+        index = np.arange(n)
+        np.random.seed(seed=0)
+        np.random.shuffle(index)
+        train_data[key] = val[index[:train_n]]
+        valid_data[key] = val[index[train_n:]]
+    return train_data, valid_data, classes, relations
 
 if __name__ == '__main__':
     main()
