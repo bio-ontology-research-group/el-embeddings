@@ -294,14 +294,22 @@ class MyModelCheckpoint(ModelCheckpoint):
             el_model = self.model.layers[-1]
             cls_embeddings = el_model.cls_embeddings.get_weights()[0]
             rel_embeddings = el_model.rel_embeddings.get_weights()[0]
-        
+
+            cls_file = self.out_classes_file
+            rel_file = self.out_relations_file
+            # Save embeddings of every thousand epochs
+            if (epoch + 1) % 1000 == 0:
+                cls_file = f'{cls_file}_{epoch + 1}.pkl'
+                rel_file = f'{rel_file}_{epoch + 1}.pkl'
+
             df = pd.DataFrame(
                 {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
-            df.to_pickle(self.out_classes_file)
+            df.to_pickle(cls_file)
                 
             df = pd.DataFrame(
                 {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
-            df.to_pickle(self.out_relations_file)
+            df.to_pickle(rel_file)
+            
 
         
 
