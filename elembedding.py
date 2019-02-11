@@ -74,9 +74,9 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         print('Params:', org, embedding_size, margin, reg_norm)
         
         data_file = f'data/data-train/{org}-classes-normalized.owl'
-        out_classes_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
-        out_relations_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
-        loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
+        out_classes_file = f'data/val_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
+        out_relations_file = f'data/val_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
+        loss_history_file = f'data/val_{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
         
     train_data, valid_data, classes, relations = load_data(data_file, neg_data_file)
     nb_classes = len(classes)
@@ -113,7 +113,7 @@ def main(data_file, neg_data_file, out_classes_file, out_relations_file,
         el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
         out = el_model([nf1, nf2, nf3, nf4, dis])
         model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis], outputs=out)
-        model.compile(optimizer='adadelta', loss='mse')
+        model.compile(optimizer='rmsprop', loss='mse')
 
         checkpointer = MyModelCheckpoint(
             out_classes_file=out_classes_file,
