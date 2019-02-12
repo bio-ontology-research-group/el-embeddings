@@ -467,7 +467,7 @@ def load_data(filename, filename_neg, index=True):
         index = np.arange(n)
         np.random.seed(seed=0)
         np.random.shuffle(index)
-        train_data[key] = val[index[:train_n]]
+        train_data[key] = val
         valid_data[key] = val[index[train_n:]]
     return train_data, valid_data, classes, relations
 
