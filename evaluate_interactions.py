@@ -25,13 +25,16 @@ logging.basicConfig(level=logging.INFO)
     '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v10.5.txt',
     help='')
 @ck.option(
+    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.actions.v10.5.txt',
+    help='')
+@ck.option(
     '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v10.5.txt',
     help='')
 @ck.option(
-    '--cls-embeds-file', '-cef', default='data/data-train/yeast_cls_embeddings.pkl',
+    '--cls-embeds-file', '-cef', default='data/cls_embeddings.pkl',
     help='Class embedings file')
 @ck.option(
-    '--rel-embeds-file', '-ref', default='data/data-train/yeast_rel_embeddings.pkl',
+    '--rel-embeds-file', '-ref', default='data/rel_embeddings.pkl',
     help='Relation embedings file')
 @ck.option(
     '--margin', '-m', default=0.01,
@@ -39,8 +42,8 @@ logging.basicConfig(level=logging.INFO)
 @ck.option(
     '--params-array-index', '-pai', default=-1,
     help='Params array index')
-def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_file, margin,
-         params_array_index):
+def main(go_file, train_data_file, valid_data_file, test_data_file,
+         cls_embeds_file, rel_embeds_file, margin, params_array_index):
     embedding_size = 100
     reg_norm = 1
     org = 'yeast'
@@ -48,15 +51,15 @@ def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_f
     pai = params_array_index
     if params_array_index != -1:
         orgs = ['human', 'yeast']
-        sizes = [50, 100, 200]
+        sizes = [50, 100, 200, 400]
         margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
         reg_norms = [1,]
         reg_norm = reg_norms[0]
         # params_array_index //= 2
         margin = margins[params_array_index % 5]
         params_array_index //= 5
-        embedding_size = sizes[params_array_index % 3]
-        params_array_index //= 3
+        embedding_size = sizes[params_array_index % 4]
+        params_array_index //= 4
         org = orgs[params_array_index % 2]
         print('Params:', org, embedding_size, margin, reg_norm)
         if org == 'human':
@@ -100,8 +103,14 @@ def main(go_file, train_data_file, test_data_file, cls_embeds_file, rel_embeds_f
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
     train_data = load_data(train_data_file, classes, relations)
+    valid_data = load_data(valid_data_file, classes, relations)
     trlabels = {}
     for c, r, d in train_data:
+        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+        if r not in trlabels:
+            trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+        trlabels[r][c, d] = 0
+    for c, r, d in valid_data:
         c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
