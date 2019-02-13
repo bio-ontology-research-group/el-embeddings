@@ -72,14 +72,14 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     pai = params_array_index
     if params_array_index != -1:
         orgs = ['human', 'yeast']
-        sizes = [50, 100, 200]
+        sizes = [50, 100, 200, 400]
         margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
         reg_norms = [1,]
         reg_norm = reg_norms[0]
         margin = margins[params_array_index % 5]
         params_array_index //= 5
-        embedding_size = sizes[params_array_index % 3]
-        params_array_index //= 3
+        embedding_size = sizes[params_array_index % 4]
+        params_array_index //= 4
         org = orgs[params_array_index % 2]
         print('Params:', org, embedding_size, margin, reg_norm)
         
