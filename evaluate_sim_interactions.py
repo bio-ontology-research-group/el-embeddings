@@ -21,10 +21,10 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--data-file', '-df', default='data/data-test/4932.protein.actions.v11.txt',
+    '--data-file', '-df', default='data/data-test/4932.protein.actions.v10.5.txt',
     help='')
 @ck.option(
-    '--sim-score-file', '-ssf', default='data/sim_proteins_yeast.txt',
+    '--sim-score-file', '-ssf', default='data/sim_resnik_yeast.txt',
     help='Semantic similarity scores for protein pairs (SemanticSimilarity.groovy)')
 def main(go_file, data_file, sim_score_file):
     go = Ontology(go_file, with_rels=False)

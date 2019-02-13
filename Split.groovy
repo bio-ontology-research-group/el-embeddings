@@ -5,6 +5,7 @@ usage: 'Self'
   i longOpt:'input', 'input STRING file', args:1, required:true
   o longOpt:'output', 'output file containing generated ontology',args:1, required:true
   t longOpt:'test-output', 'output file containing generated testing data',args:1, required:true
+  v longOpt:'valid-output', 'output file containing generated validation data',args:1, required:true
 }
 def opt = cli.parse(args)
 if( !opt ) {
@@ -17,7 +18,8 @@ if( opt.h ) {
 }
 
 PrintWriter fout1 = new PrintWriter(new FileWriter(opt.o))
-PrintWriter fout2 = new PrintWriter(new FileWriter(opt.t))
+PrintWriter fout2 = new PrintWriter(new FileWriter(opt.v))
+PrintWriter fout3 = new PrintWriter(new FileWriter(opt.t))
 Set<String> set = new HashSet<String>()
 
 new File(opt.i).splitEachLine("\t") { line ->
@@ -32,13 +34,18 @@ new File(opt.i).splitEachLine("\t") { line ->
     }
 }
 set.each {
-    if (Math.random() > 0.1) {
+    def rand = Math.random()
+    if (rand <= 0.8) {
 	fout1.println("$it")
-    } else {
+    } else if (rand <= 0.9) {
 	fout2.println("$it")
+    } else {
+	fout3.println("$it")
     }
 }
 fout1.flush()
 fout2.flush()
 fout1.close()
 fout2.close()
+fout3.flush()
+fout3.close()

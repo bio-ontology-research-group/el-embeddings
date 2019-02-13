@@ -57,7 +57,7 @@ def main(go_file, data_file, neg_data_file, cls_embeds_file, rel_embeds_file, ma
     for i, emb in enumerate(rembeds_list):
         rembeds[i, :] = emb
     
-    data, _, _ = load_data(data_file, neg_data_file, index=False)
+    data, _, _, _ = load_data(data_file, neg_data_file, index=False)
     
     print(relations)
     # Evaluate normal form 1 axioms
@@ -114,7 +114,7 @@ def main(go_file, data_file, neg_data_file, cls_embeds_file, rel_embeds_file, ma
         if c not in classes or d not in classes or r not in relations:
             continue
         c, r, d = classes[c], relations[r], classes[d]
-        if r not in [1, 2, 3, 5, 8, 10, 14]:
+        if r not in [0, 1, 3, 7, 9, 10, 15]:
             continue
         n += 1
         ec = embeds[c, :]
@@ -123,7 +123,7 @@ def main(go_file, data_file, neg_data_file, cls_embeds_file, rel_embeds_file, ma
         rd = rs[d]
         er = rembeds[r, :]
         ec = ec + er
-        if is_inside(ec, rc, ed, rd):
+        if is_inside(ec, rc, ed, rd, margin):
             s += 1
     print('Normal form 3', n, s, s / n)
 
@@ -142,7 +142,7 @@ def main(go_file, data_file, neg_data_file, cls_embeds_file, rel_embeds_file, ma
         rd = rs[d]
         er = rembeds[r, :]
         ec = ec - er
-        if is_intersect(ec, rc, ed, rd):
+        if is_intersect(ec, rc, ed, rd, margin):
             s += 1
     print('Normal form 4', n, s, s / n)
 
@@ -204,37 +204,12 @@ def main(go_file, data_file, neg_data_file, cls_embeds_file, rel_embeds_file, ma
 
 def is_inside(ec, rc, ed, rd, margin=0.01):
     dst = np.linalg.norm(ec - ed)
-    return dst + rc - margin <= rd
+    return dst + rc - rd - margin <= 0
 
 def is_intersect(ec, rc, ed, rd, margin=0.01):
     dst = np.linalg.norm(ec - ed)
     return dst - margin <= rc + rd
 
-def plot_embeddings(embeds, rs, classes):
-    if embeds.shape[1] > 2:
-        embeds = TSNE().fit_transform(embeds)
-    go = Ontology('data/go.obo')
-    bp = go.get_term_set(FUNC_DICT['bp'])
-    mf = go.get_term_set(FUNC_DICT['mf'])
-    cc = go.get_term_set(FUNC_DICT['cc'])
-    
-    fig, ax =  plt.subplots()
-    ax.set_xlim(-2, 2)
-    ax.set_ylim(-2, 2)
-    
-    for i in range(embeds.shape[0]):
-        x, y = embeds[i, 0], embeds[i, 1]
-        r = rs[i]
-        ax.add_artist(plt.Circle(
-            (x, y), r, color='blue', alpha=0.05,
-            edgecolor='black'))
-        ax.annotate(classes[i], xy=(x, y), fontsize=4, ha="center")
-    ax.legend()
-    ax.grid(True)
-    plt.savefig('embeds.pdf')
-    plt.show()
-
-    
 def sim(ec, rc, ed, rd):
     dst = np.linalg.norm(ec - ed)
     overlap = max(0, (2 * rc - max(dst + rc - rd, 0)) / (2 * rc))
