@@ -21,12 +21,18 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--data-file', '-df', default='data/data-test/4932.protein.actions.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v10.5.txt',
+    help='')
+@ck.option(
+    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.actions.v10.5.txt',
+    help='')
+@ck.option(
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v10.5.txt',
     help='')
 @ck.option(
     '--sim-score-file', '-ssf', default='data/sim_resnik_yeast.txt',
     help='Semantic similarity scores for protein pairs (SemanticSimilarity.groovy)')
-def main(go_file, data_file, sim_score_file):
+def main(go_file, train_data_file, valid_data_file, test_data_file, sim_score_file):
     go = Ontology(go_file, with_rels=False)
 
     with open(sim_score_file, 'r') as f:
@@ -40,41 +46,84 @@ def main(go_file, data_file, sim_score_file):
             s = np.array(list(map(float, s)), dtype=np.float32)
             sim[i, :] = s
             i += 1
-        
-    data = load_data(data_file, prots_dict)
-    top1 = 0
+    train_data = load_data(train_data_file, prots_dict)
+    valid_data = load_data(valid_data_file, prots_dict)
+    trlabels = np.ones((len(proteins), len(proteins)), dtype=np.int32)
+    for c, d in train_data:
+        trlabels[c, d] = 0
+    for c, d in valid_data:
+        trlabels[c, d] = 0
+
+    test_data = load_data(test_data_file, prots_dict)
     top10 = 0
     top100 = 0
     mean_rank = 0
-    n = len(data)
+    ftop10 = 0
+    ftop100 = 0
+    fmean_rank = 0
+    n = len(test_data)
     labels = np.zeros((len(proteins), len(proteins)), dtype=np.int32) 
-    
-    with ck.progressbar(data) as prog_data:
+    ranks = {}
+    franks = {}
+    with ck.progressbar(test_data) as prog_data:
         for c, d in prog_data:
             labels[c, d] = 1
-            labels[d, c] = 1
             index = rankdata(-sim[c, :], method='average')
             rank = index[d]
-            if rank == 1:
-                top1 += 1
             if rank <= 10:
                 top10 += 1
             if rank <= 100:
                 top100 += 1
             mean_rank += rank
+            if rank not in ranks:
+                ranks[rank] = 0
+            ranks[rank] += 1
+
+            # Filtered rank
+            fil = sim[c, :] * (labels[c, :] | trlabels[c, :])
+            index = rankdata(-fil, method='average')
+            rank = index[d]
+            if rank <= 10:
+                ftop10 += 1
+            if rank <= 100:
+                ftop100 += 1
+            fmean_rank += rank
+            if rank not in franks:
+                franks[rank] = 0
+            franks[rank] += 1
+
         print()
-        print(top1 / n, top10 / n, top100 / n, mean_rank / n)
-    # roc_auc = compute_roc(l, p)
-    # fmax = compute_fmax(l, p)
-    # print(rel_df['relations'][i], roc_auc)
-    # print(fmax)
-    print('Global', compute_roc(labels, sim))
-    
+        top10 /= n
+        top100 /= n
+        mean_rank /= n
+        ftop10 /= n
+        ftop100 /= n
+        fmean_rank /= n
+
+        rank_auc = compute_rank_roc(ranks, len(proteins))
+        frank_auc = compute_rank_roc(franks, len(proteins))
+        print(f'{top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
+        print(f'{ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
+
 def compute_roc(labels, preds):
     # Compute ROC curve and ROC area for each class
     fpr, tpr, _ = roc_curve(labels.flatten(), preds.flatten())
     roc_auc = auc(fpr, tpr)
     return roc_auc
+
+def compute_rank_roc(ranks, n_prots):
+    auc_x = list(ranks.keys())
+    auc_x.sort()
+    auc_y = []
+    tpr = 0
+    sum_rank = sum(ranks.values())
+    for x in auc_x:
+        tpr += ranks[x]
+        auc_y.append(tpr / sum_rank)
+    auc_x.append(n_prots)
+    auc_y.append(1)
+    auc = np.trapz(auc_y, auc_x) / n_prots
+    return auc
 
 def compute_fmax(labels, preds):
     fmax = 0.0

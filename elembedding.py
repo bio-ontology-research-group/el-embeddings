@@ -91,7 +91,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
     train_data, classes, relations = load_data(data_file)
     valid_data = load_valid_data(valid_data_file, classes, relations)
-
+    print(train_data, classes, relations)
+    
     proteins = {}
     for k, v in classes.items():
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
@@ -128,6 +129,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         optimizer = optimizers.Adam(lr=0.003)
         model.compile(optimizer=optimizer, loss='mse')
 
+        # TOP Embedding
+        top = classes.get('owl:Thing', None)
         checkpointer = MyModelCheckpoint(
             out_classes_file=out_classes_file,
             out_relations_file=out_relations_file,
@@ -135,7 +138,9 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
             rel_list=rel_list,
             valid_data=valid_data,
             proteins=proteins,
-            monitor='loss')
+            monitor='loss',
+            top=top)
+        
         logger = CSVLogger(loss_history_file)
 
         # Save initial embeddings
@@ -182,6 +187,10 @@ class ELModel(tf.keras.Model):
             nb_relations,
             embedding_size,
             input_length=1)
+
+        top_embed = np.zeros((embedding_size + 1), dtype=np.float32)
+        top_embed[-1] = 1000000.0 # Infinity radius
+        self.top_embed = tf.convert_to_tensor(top_embed, dtype=tf.float32)
             
     def call(self, input):
         """Run the model."""
@@ -316,17 +325,28 @@ class MyModelCheckpoint(ModelCheckpoint):
         self.proteins = kwargs.pop('proteins')
         self.prot_index = list(self.proteins.values())
         self.prot_dict = {v: k for k, v in enumerate(self.prot_index)}
+        self.top = kwargs.pop('top', None)
     
         self.best_rank = 100000
-   
+
+    # def on_batch_begin(self, batch, logs=None):
+    #     # Set TOP embedding
+    #     if self.top:
+    #         el_model = self.model.layers[-1]
+    #         assign = tf.assign(
+    #             el_model.cls_embeddings[self.top, :], self.model.top_embed)
+    #         session.run([assign])
+    #     super(MyModelCheckpoint, self).on_batch_begin(batch, logs)
+        
     def on_epoch_end(self, epoch, logs=None):
         # Save embeddings every 10 epochs
         current_loss = logs.get(self.monitor)
-        if math.isnan(current_loss):
+        if current_loss and math.isnan(current_loss):
             print('NAN loss, stopping training')
             self.model.stop_training = True
             return
-
+        if len(self.valid_data) == 0:
+            return
         el_model = self.model.layers[-1]
         cls_embeddings = el_model.cls_embeddings.get_weights()[0]
         rel_embeddings = el_model.rel_embeddings.get_weights()[0]

@@ -64,6 +64,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         print('Params:', org, embedding_size, margin, reg_norm)
         if org == 'human':
             train_data_file = f'data/data-train/9606.protein.actions.v10.5.txt'
+            valid_data_file = f'data/data-valid/9606.protein.actions.v10.5.txt'
             test_data_file = f'data/data-test/9606.protein.actions.v10.5.txt'
         cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
         rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
@@ -90,8 +91,6 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
     rs = np.abs(embeds[:, -1]).reshape(-1, 1)
-    print(rs)
-    # return
     embeds = embeds[:, :-1]
     prot_index = list(proteins.values())
     prot_rs = rs[prot_index, :]
@@ -110,11 +109,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
         trlabels[r][c, d] = 0
-    for c, r, d in valid_data:
-        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
-        if r not in trlabels:
-            trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-        trlabels[r][c, d] = 0
+    # for c, r, d in valid_data:
+    #     c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+    #     if r not in trlabels:
+    #         trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+    #     trlabels[r][c, d] = 0
 
     test_data = load_data(test_data_file, classes, relations)
     top1 = 0
@@ -128,7 +127,9 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     n = len(test_data)
     labels = {}
     preds = {}
-    with ck.progressbar(test_data) as prog_data:
+    ranks = {}
+    franks = {}
+    with ck.progressbar(valid_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
             if r not in labels:
@@ -161,6 +162,10 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             if rank <= 100:
                 top100 += 1
             mean_rank += rank
+            if rank not in ranks:
+                ranks[rank] = 0
+            ranks[rank] += 1
+
             # Filtered rank
             index = rankdata(-(res * trlabels[r][c, :]), method='average')
             rank = index[d]
@@ -171,6 +176,10 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             if rank <= 100:
                 ftop100 += 1
             fmean_rank += rank
+
+            if rank not in franks:
+                franks[rank] = 0
+            franks[rank] += 1
     top1 /= n
     top10 /= n
     top100 /= n
@@ -179,21 +188,12 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     ftop10 /= n
     ftop100 /= n
     fmean_rank /= n
+
+    rank_auc = compute_rank_roc(ranks, len(proteins))
+    frank_auc = compute_rank_roc(franks, len(proteins))
     
-    gl = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-    gp = np.zeros((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-    for i, l in labels.items():
-        p = preds[i]
-        gl = np.maximum(gl, l)
-        gp = np.maximum(gp, p)
-        # roc_auc = compute_roc(l, p)
-        # fmax = compute_fmax(l, p)
-        # print(rel_df['relations'][i], roc_auc)
-        # print(fmax)
-    print()
-    roc_auc = compute_roc(gl, gp)
-    print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {roc_auc:.2f}')
-    print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {roc_auc:.2f}')
+    print(f'{org} {embedding_size} {margin} {reg_norm} {top10:.2f} {top100:.2f} {mean_rank:.2f} {rank_auc:.2f}')
+    print(f'{org} {embedding_size} {margin} {reg_norm} {ftop10:.2f} {ftop100:.2f} {fmean_rank:.2f} {frank_auc:.2f}')
     
     
 def compute_roc(labels, preds):
@@ -201,6 +201,20 @@ def compute_roc(labels, preds):
     fpr, tpr, _ = roc_curve(labels.flatten(), preds.flatten())
     roc_auc = auc(fpr, tpr)
     return roc_auc
+
+def compute_rank_roc(ranks, n_prots):
+    auc_x = list(ranks.keys())
+    auc_x.sort()
+    auc_y = []
+    tpr = 0
+    sum_rank = sum(ranks.values())
+    for x in auc_x:
+        tpr += ranks[x]
+        auc_y.append(tpr / sum_rank)
+    auc_x.append(n_prots)
+    auc_y.append(1)
+    auc = np.trapz(auc_y, auc_x) / n_prots
+    return auc
 
 def compute_fmax(labels, preds):
     fmax = 0.0
