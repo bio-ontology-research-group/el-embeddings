@@ -103,7 +103,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     nb_train_data = 0
     for key, val in train_data.items():
         nb_train_data = max(len(val), nb_train_data)
-    train_steps = int(math.ceil(nb_train_data / (1.0 * batch_size))) // 10
+    train_steps = int(math.ceil(nb_train_data / (1.0 * batch_size)))
     train_generator = Generator(train_data, batch_size, steps=train_steps)
 
     cls_dict = {v: k for k, v in classes.items()}
@@ -329,19 +329,19 @@ class MyModelCheckpoint(ModelCheckpoint):
     
         self.best_rank = 100000
 
-    # def on_batch_begin(self, batch, logs=None):
-    #     # Set TOP embedding
-    #     if self.top:
-    #         el_model = self.model.layers[-1]
-    #         assign = tf.assign(
-    #             el_model.cls_embeddings[self.top, :], self.model.top_embed)
-    #         session.run([assign])
-    #     super(MyModelCheckpoint, self).on_batch_begin(batch, logs)
+    def on_batch_begin(self, batch, logs=None):
+        # Set TOP embedding
+        if self.top:
+            el_model = self.model.layers[-1]
+            assign = tf.assign(
+                el_model.cls_embeddings.embeddings[self.top, :], el_model.top_embed)
+            session.run([assign])
+        super(MyModelCheckpoint, self).on_batch_begin(batch, logs)
         
     def on_epoch_end(self, epoch, logs=None):
         # Save embeddings every 10 epochs
         current_loss = logs.get(self.monitor)
-        if current_loss and math.isnan(current_loss):
+        if math.isnan(current_loss):
             print('NAN loss, stopping training')
             self.model.stop_training = True
             return
