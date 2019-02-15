@@ -124,11 +124,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     ftop10 = 0
     ftop100 = 0
     fmean_rank = 0
-    n = len(test_data)
     labels = {}
     preds = {}
     ranks = {}
     franks = {}
+    n = len(valid_data)
     with ck.progressbar(valid_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
@@ -180,14 +180,14 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             if rank not in franks:
                 franks[rank] = 0
             franks[rank] += 1
-    top1 /= n
-    top10 /= n
-    top100 /= n
-    mean_rank /= n
-    ftop1 /= n
-    ftop10 /= n
-    ftop100 /= n
-    fmean_rank /= n
+        top1 /= n
+        top10 /= n
+        top100 /= n
+        mean_rank /= n
+        ftop1 /= n
+        ftop10 /= n
+        ftop100 /= n
+        fmean_rank /= n
 
     rank_auc = compute_rank_roc(ranks, len(proteins))
     frank_auc = compute_rank_roc(franks, len(proteins))

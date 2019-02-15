@@ -62,8 +62,8 @@ def plot_embeddings(embeds, rs, classes, epoch):
     
     fig, ax =  plt.subplots()
     
-    ax.set_xlim(-4, 2)
-    ax.set_ylim(-3, 3)
+    ax.set_xlim(-2, 3)
+    ax.set_ylim(-3, 2)
     colors = plt.cm.get_cmap('hsv', embeds.shape[0])
     for i in range(embeds.shape[0]):
         if classes[i] == 'owl:Nothing':

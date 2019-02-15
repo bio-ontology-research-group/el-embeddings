@@ -122,11 +122,11 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         nf3 = Input(shape=(3,), dtype=np.int32)
         nf4 = Input(shape=(3,), dtype=np.int32)
         dis = Input(shape=(3,), dtype=np.int32)
-        # neg = Input(shape=(2,), dtype=np.int32)
+        top = Input(shape=(1,), dtype=np.int32)
         el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
-        out = el_model([nf1, nf2, nf3, nf4, dis])
-        model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis], outputs=out)
-        optimizer = optimizers.Adam(lr=0.003)
+        out = el_model([nf1, nf2, nf3, nf4, dis, top])
+        model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis, top], outputs=out)
+        optimizer = optimizers.Adam(lr=0.1)
         model.compile(optimizer=optimizer, loss='mse')
 
         # TOP Embedding
@@ -138,8 +138,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
             rel_list=rel_list,
             valid_data=valid_data,
             proteins=proteins,
-            monitor='loss',
-            top=top)
+            monitor='loss')
         
         logger = CSVLogger(loss_history_file)
 
@@ -178,6 +177,7 @@ class ELModel(tf.keras.Model):
         self.margin = margin
         self.reg_norm = reg_norm
         self.batch_size = batch_size
+        self.inf = 5.0 # For top radius
         
         self.cls_embeddings = tf.keras.layers.Embedding(
             nb_classes,
@@ -188,22 +188,21 @@ class ELModel(tf.keras.Model):
             embedding_size,
             input_length=1)
 
-        top_embed = np.zeros((embedding_size + 1), dtype=np.float32)
-        top_embed[-1] = 1000000.0 # Infinity radius
-        self.top_embed = tf.convert_to_tensor(top_embed, dtype=tf.float32)
             
     def call(self, input):
         """Run the model."""
-        nf1, nf2, nf3, nf4, dis = input
+        nf1, nf2, nf3, nf4, dis, top = input
         loss1 = self.nf1_loss(nf1)
         loss2 = self.nf2_loss(nf2)
         loss3 = self.nf3_loss(nf3)
         loss4 = self.nf4_loss(nf4)
         loss_dis = self.dis_loss(dis)
+        loss_top = self.top_loss(top)
         # loss_neg = self.neg_loss(neg)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis # + loss_neg
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_top # + loss_neg
         return loss
-   
+
+    
     def loss(self, c, d):
         rc = tf.math.abs(c[:, -1])
         rd = tf.math.abs(d[:, -1])
@@ -298,6 +297,13 @@ class ELModel(tf.keras.Model):
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
         return tf.nn.relu(sr - dst + self.margin) + self.reg(x1) + self.reg(x2)
 
+
+    def top_loss(self, input):
+        d = input[:, 0]
+        d = self.cls_embeddings(d)
+        rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
+        return tf.math.abs(rd - self.inf)
+    
     # def neg_loss(self, input, margin, reg_norm):
     #     c = input[:, 0]
     #     d = input[:, 1]
@@ -325,18 +331,8 @@ class MyModelCheckpoint(ModelCheckpoint):
         self.proteins = kwargs.pop('proteins')
         self.prot_index = list(self.proteins.values())
         self.prot_dict = {v: k for k, v in enumerate(self.prot_index)}
-        self.top = kwargs.pop('top', None)
     
         self.best_rank = 100000
-
-    def on_batch_begin(self, batch, logs=None):
-        # Set TOP embedding
-        if self.top:
-            el_model = self.model.layers[-1]
-            assign = tf.assign(
-                el_model.cls_embeddings.embeddings[self.top, :], el_model.top_embed)
-            session.run([assign])
-        super(MyModelCheckpoint, self).on_batch_begin(batch, logs)
         
     def on_epoch_end(self, epoch, logs=None):
         # Save embeddings every 10 epochs
@@ -344,8 +340,6 @@ class MyModelCheckpoint(ModelCheckpoint):
         if math.isnan(current_loss):
             print('NAN loss, stopping training')
             self.model.stop_training = True
-            return
-        if len(self.valid_data) == 0:
             return
         el_model = self.model.layers[-1]
         cls_embeddings = el_model.cls_embeddings.get_weights()[0]
@@ -383,27 +377,27 @@ class MyModelCheckpoint(ModelCheckpoint):
             # rank = index[d]
             # fmean_rank += rank
 
-        mean_rank /= n
+        # mean_rank /= n
         # fmean_rank /= n
-        print(f'\n Validation {epoch + 1} {mean_rank}\n')
-        if mean_rank < self.best_rank:
-            self.best_rank = mean_rank
-            print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
-            
-            cls_file = self.out_classes_file
-            rel_file = self.out_relations_file
-            # Save embeddings of every thousand epochs
-            # if (epoch + 1) % 1000 == 0:
-            # cls_file = f'{cls_file}_{epoch + 1}.pkl'
-            # rel_file = f'{rel_file}_{epoch + 1}.pkl'
+        # print(f'\n Validation {epoch + 1} {mean_rank}\n')
+        # if mean_rank < self.best_rank:
+        self.best_rank = mean_rank
+        print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
 
-            df = pd.DataFrame(
-                {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
-            df.to_pickle(cls_file)
+        cls_file = self.out_classes_file
+        rel_file = self.out_relations_file
+        # Save embeddings of every thousand epochs
+        # if (epoch + 1) % 1000 == 0:
+        cls_file = f'{cls_file}_{epoch + 1}.pkl'
+        rel_file = f'{rel_file}_{epoch + 1}.pkl'
 
-            df = pd.DataFrame(
-                {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
-            df.to_pickle(rel_file)
+        df = pd.DataFrame(
+            {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
+        df.to_pickle(cls_file)
+
+        df = pd.DataFrame(
+            {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
+        df.to_pickle(rel_file)
 
         
 
@@ -436,6 +430,8 @@ class Generator(object):
                 self.data['nf4'].shape[0], self.batch_size)
             dis_index = np.random.choice(
                 self.data['disjoint'].shape[0], self.batch_size)
+            top_index = np.random.choice(
+                self.data['top'].shape[0], self.batch_size)
             # neg_index = np.random.choice(
             #     self.data['negatives'].shape[0], self.batch_size)
             nf1 = self.data['nf1'][nf1_index]
@@ -443,11 +439,12 @@ class Generator(object):
             nf3 = self.data['nf3'][nf3_index]
             nf4 = self.data['nf4'][nf4_index]
             dis = self.data['disjoint'][dis_index]
+            top = self.data['top'][top_index]
             # print(nf1, nf2, nf3, nf4, dis)
             # neg = self.data['negatives'][neg_index]
             labels = np.zeros((self.batch_size, 1), dtype=np.float32)
             self.start += 1
-            return ([nf1, nf2, nf3, nf4, dis], labels)
+            return ([nf1, nf2, nf3, nf4, dis, top], labels)
         else:
             self.reset()
 
@@ -531,12 +528,17 @@ def load_data(filename, index=True):
                 else:
                     data['nf1'].append((c, d))
             
+    # Check if TOP in classes and insert if it is not there
+    if 'owl:Thing' not in classes:
+        classes['owl:Thing'] = len(classes)
+
     data['nf1'] = np.array(data['nf1'])
     data['nf2'] = np.array(data['nf2'])
     data['nf3'] = np.array(data['nf3'])
     data['nf4'] = np.array(data['nf4'])
     data['disjoint'] = np.array(data['disjoint'])
-
+    data['top'] = np.array([classes['owl:Thing'],])
+    
     for key, val in data.items():
         index = np.arange(len(data[key]))
         np.random.seed(seed=100)
