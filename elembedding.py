@@ -377,27 +377,27 @@ class MyModelCheckpoint(ModelCheckpoint):
             # rank = index[d]
             # fmean_rank += rank
 
-        # mean_rank /= n
+        mean_rank /= n
         # fmean_rank /= n
         # print(f'\n Validation {epoch + 1} {mean_rank}\n')
-        # if mean_rank < self.best_rank:
-        self.best_rank = mean_rank
-        print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
+        if mean_rank < self.best_rank:
+            self.best_rank = mean_rank
+            print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
 
-        cls_file = self.out_classes_file
-        rel_file = self.out_relations_file
-        # Save embeddings of every thousand epochs
-        # if (epoch + 1) % 1000 == 0:
-        cls_file = f'{cls_file}_{epoch + 1}.pkl'
-        rel_file = f'{rel_file}_{epoch + 1}.pkl'
+            cls_file = self.out_classes_file
+            rel_file = self.out_relations_file
+            # Save embeddings of every thousand epochs
+            # if (epoch + 1) % 1000 == 0:
+            # cls_file = f'{cls_file}_{epoch + 1}.pkl'
+            # rel_file = f'{rel_file}_{epoch + 1}.pkl'
 
-        df = pd.DataFrame(
-            {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
-        df.to_pickle(cls_file)
+            df = pd.DataFrame(
+                {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
+            df.to_pickle(cls_file)
 
-        df = pd.DataFrame(
-            {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
-        df.to_pickle(rel_file)
+            df = pd.DataFrame(
+                {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
+            df.to_pickle(rel_file)
 
         
 
