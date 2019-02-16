@@ -15,7 +15,7 @@ def main():
     print('\\hline')
     print('Embedding Size & Margin & Raw Hits@10(\%) & Filtered Hits@10(\%) & Raw Hits@100(\%) & Filtered Hits@100(\%) & Raw Mean Rank & Filtered Mean Rank & Raw AUC & Filtered AUC\\\\')
     print('\\hline')
-    for i in range(20, 40):
+    for i in range(0, 20):
         with open(f'{i}.res') as f:
             lines = f.readlines()
             r1 = lines[-2].split()

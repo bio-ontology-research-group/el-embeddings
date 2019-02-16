@@ -21,13 +21,13 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.actions.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
     '--sim-score-file', '-ssf', default='data/sim_resnik_yeast.txt',

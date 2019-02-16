@@ -68,18 +68,14 @@ map.each { k, map2 ->
 }
 
 def idset = new LinkedHashSet()
+def rel = 'interacts'
+
 new File(opt.i).splitEachLine("\t") { line ->
-    if (!line[0].startsWith("item")) {
-	def id1 = line[0]
-	def id2 = line[1]
-	def rel = line[2]
-	def score = 700 //new Integer(line[-1])
-	if (score >= 700) {  // only use high-confidence predictions
-	    idset.add(id1)
-	    idset.add(id2)
-	    fout.println("<http://$id1> <http://$rel> <http://$id2> .")
-	}
-    }
+    def id1 = line[0]
+    def id2 = line[1]
+    idset.add(id1)
+    idset.add(id2)
+    fout.println("<http://$id1> <http://$rel> <http://$id2> .")
 }
 
 def hasFunction = "<http://hasFunction>"

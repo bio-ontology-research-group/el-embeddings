@@ -22,13 +22,13 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.actions.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.actions.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.actions.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/cls_embeddings.pkl',
@@ -109,11 +109,11 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
         trlabels[r][c, d] = 0
-    # for c, r, d in valid_data:
-    #     c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
-    #     if r not in trlabels:
-    #         trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-    #     trlabels[r][c, d] = 0
+    for c, r, d in valid_data:
+        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+        if r not in trlabels:
+            trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+        trlabels[r][c, d] = 0
 
     test_data = load_data(test_data_file, classes, relations)
     top1 = 0
@@ -128,8 +128,9 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     preds = {}
     ranks = {}
     franks = {}
-    n = len(valid_data)
-    with ck.progressbar(valid_data) as prog_data:
+    eval_data = test_data
+    n = len(eval_data)
+    with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
             c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
             if r not in labels:

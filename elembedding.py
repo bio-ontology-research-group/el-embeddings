@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO)
     '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
-    '--valid-data-file', '-vdf', default='data/data-valid/4932.protein.actions.v10.5.txt',
+    '--valid-data-file', '-vdf', default='data/data-valid/4932.protein.links.v10.5.txt',
     help='Validation data set')
 @ck.option(
     '--out-classes-file', '-ocf', default='data/cls_embeddings.pkl',
@@ -54,7 +54,7 @@ logging.basicConfig(level=logging.INFO)
     '--reg-norm', '-rn', default=1,
     help='Regularization norm')
 @ck.option(
-    '--margin', '-m', default=0.01,
+    '--margin', '-m', default=0.0,
     help='Loss margin')
 @ck.option(
     '--learning-rate', '-lr', default=0.01,
@@ -91,7 +91,6 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
     train_data, classes, relations = load_data(data_file)
     valid_data = load_valid_data(valid_data_file, classes, relations)
-    print(train_data, classes, relations)
     
     proteins = {}
     for k, v in classes.items():
@@ -126,7 +125,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
         out = el_model([nf1, nf2, nf3, nf4, dis, top])
         model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis, top], outputs=out)
-        optimizer = optimizers.Adam(lr=0.1)
+        optimizer = optimizers.Adam(lr=0.0001)
         model.compile(optimizer=optimizer, loss='mse')
 
         # TOP Embedding
@@ -203,15 +202,6 @@ class ELModel(tf.keras.Model):
         return loss
 
     
-    def loss(self, c, d):
-        rc = tf.math.abs(c[:, -1])
-        rd = tf.math.abs(d[:, -1])
-        c = c[:, 0:-1]
-        d = d[:, 0:-1]
-        euc = tf.norm(c - d, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd), [-1, 1])
-        return dst + self.reg(c) + self.reg(d)
-
     def reg(self, x):
         res = tf.abs(tf.norm(x, axis=1) - self.reg_norm)
         res = tf.reshape(res, [-1, 1])
@@ -222,7 +212,14 @@ class ELModel(tf.keras.Model):
         d = input[:, 1]
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
-        return self.loss(c, d)
+
+        rc = tf.math.abs(c[:, -1])
+        rd = tf.math.abs(d[:, -1])
+        x1 = c[:, 0:-1]
+        x2 = d[:, 0:-1]
+        euc = tf.norm(x1 - x2, axis=1)
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        return dst + self.reg(x1) + self.reg(x2)
     
     def nf2_loss(self, input):
         c = input[:, 0]
@@ -257,9 +254,16 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
         r = self.rel_embeddings(r)
-        rd = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
-        c = c + rd
-        return self.loss(c, d) # + self.reg(r)
+        x1 = c[:, 0:-1]
+        x2 = d[:, 0:-1]
+        x3 = x1 + r
+
+        rc = tf.math.abs(c[:, -1])
+        rd = tf.math.abs(d[:, -1])
+        euc = tf.norm(x3 - x2, axis=1)
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        
+        return dst + self.reg(x1) + self.reg(x2)
 
     def nf4_loss(self, input):
         # R some C subClassOf D
@@ -269,18 +273,16 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
         r = self.rel_embeddings(r)
-        rr = tf.concat([r, tf.zeros((self.batch_size, 1), dtype=tf.float32)], 1)
-        c = c - rr
-        # c - r should intersect with d
         rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
         rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        x = x2 - x1
-        dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
+        # c - r should intersect with d
+        x3 = x1 - r
+        dst = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
         dst_loss = tf.nn.relu(dst - sr - self.margin)
-        return dst_loss + self.reg(x1) + self.reg(x2) # + self.reg(r)
+        return dst_loss + self.reg(x1) + self.reg(x2)
     
 
     def dis_loss(self, input):
@@ -293,8 +295,7 @@ class ELModel(tf.keras.Model):
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        x = x2 - x1
-        dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
+        dst = tf.reshape(tf.norm(x2 - x1, axis=1), [-1, 1])
         return tf.nn.relu(sr - dst + self.margin) + self.reg(x1) + self.reg(x2)
 
 
@@ -314,7 +315,7 @@ class ELModel(tf.keras.Model):
     #     x1 = c[:, 0:-1]
     #     x2 = d[:, 0:-1]
     #     x = x2 - x1
-    #     dst = tf.reshape(norm(x), [-1, 1])
+    #     dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
     #     return tf.nn.relu(rd - rc - dst + self.margin) + self.reg(x1) + self.reg(x2)
     
 
@@ -379,17 +380,17 @@ class MyModelCheckpoint(ModelCheckpoint):
 
         mean_rank /= n
         # fmean_rank /= n
-        # print(f'\n Validation {epoch + 1} {mean_rank}\n')
+        print(f'\n Validation {epoch + 1} {mean_rank}\n')
         if mean_rank < self.best_rank:
             self.best_rank = mean_rank
             print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
-
+            
             cls_file = self.out_classes_file
             rel_file = self.out_relations_file
             # Save embeddings of every thousand epochs
             # if (epoch + 1) % 1000 == 0:
-            # cls_file = f'{cls_file}_{epoch + 1}.pkl'
-            # rel_file = f'{rel_file}_{epoch + 1}.pkl'
+            cls_file = f'{cls_file}_{epoch + 1}.pkl'
+            rel_file = f'{rel_file}_{epoch + 1}.pkl'
 
             df = pd.DataFrame(
                 {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
@@ -549,12 +550,12 @@ def load_data(filename, index=True):
 
 def load_valid_data(valid_data_file, classes, relations):
     data = []
+    rel = f'<http://interacts>'
     with open(valid_data_file, 'r') as f:
         for line in f:
             it = line.strip().split()
             id1 = f'<http://{it[0]}>'
             id2 = f'<http://{it[1]}>'
-            rel = f'<http://{it[2]}>'
             if id1 not in classes or id2 not in classes or rel not in relations:
                 continue
             data.append((classes[id1], relations[rel], classes[id2]))

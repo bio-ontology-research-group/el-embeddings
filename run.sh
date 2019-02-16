@@ -1,5 +1,5 @@
 #!/bin/bash
-for i in $(seq 0 1 29)
+for i in $(seq 15 1 19)
 do
-python elembedding.py -pai $i -e 10
+python evaluate_interactions.py -pai $i > $i.res
 done

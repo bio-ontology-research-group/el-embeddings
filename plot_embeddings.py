@@ -62,8 +62,8 @@ def plot_embeddings(embeds, rs, classes, epoch):
     
     fig, ax =  plt.subplots()
     
-    ax.set_xlim(-2, 3)
-    ax.set_ylim(-3, 2)
+    ax.set_xlim(-4, 2)
+    ax.set_ylim(-3, 4)
     colors = plt.cm.get_cmap('hsv', embeds.shape[0])
     for i in range(embeds.shape[0]):
         if classes[i] == 'owl:Nothing':
@@ -72,12 +72,12 @@ def plot_embeddings(embeds, rs, classes, epoch):
         r = rs[i]
         ax.add_artist(plt.Circle(
             (x, y), r, fill=False, edgecolor=colors(i)))
-        ax.annotate(classes[i], xy=(x, y), fontsize=8, ha="center")
+        ax.annotate(classes[i], xy=(x, y), fontsize=6, ha="center")
     ax.legend()
     ax.grid(True)
     filename = 'embeds.pdf'
     if epoch:
-        filename = f'embeds_{epoch}.png' 
+        filename = f'embeds_{int(epoch):02d}.png' 
     plt.savefig(filename)
     # plt.show()
 
