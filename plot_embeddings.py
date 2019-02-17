@@ -47,6 +47,19 @@ def main(go_file, cls_embeds_file, rel_embeds_file, epoch):
     for i, emb in enumerate(embeds_list):
         embeds[i, :] = emb
     rs = np.abs(embeds[:, -1])
+    prot_rs = []
+    for i, c in classes.items():
+        if not c.startswith('<http://purl.obolibrary.org/obo/GO_'):
+            prot_rs.append(i)
+    print(len(prot_rs))
+    n, bins, patches = plt.hist(rs[prot_rs].flatten(), 100, facecolor='g', alpha=0.75)
+    plt.xlabel('Radiuses')
+    plt.ylabel('Length')
+    plt.title('Histogram of Radiuses')
+    plt.grid(True)
+    plt.show()
+    return
+
     embeds = embeds[:, :-1]
 
     rsize = len(rembeds_list[0])

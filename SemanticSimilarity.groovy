@@ -94,7 +94,7 @@ new File(opt.ia).splitEachLine('\t') { items ->
     }
 }
 
-def sim_id = 3 //this.args[0].toInteger()
+def sim_id = 0 //this.args[0].toInteger()
 
 SM_Engine engine = new SM_Engine(graph)
 
