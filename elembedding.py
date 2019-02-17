@@ -85,7 +85,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         
         data_file = f'data/data-train/{org}-classes-normalized.owl'
         if org == 'human':
-            valid_data_file = f'data/data-valid/9606.protein.actions.v10.5.txt'
+            valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
         out_classes_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
         out_relations_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
         loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
