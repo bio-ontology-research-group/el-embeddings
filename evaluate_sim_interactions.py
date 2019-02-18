@@ -159,7 +159,6 @@ def load_data(data_file, proteins):
             it = line.strip().split()
             id1 = it[0]
             id2 = it[1]
-            rel = it[2]
             if id1 not in proteins or id2 not in proteins:
                 continue
             data.append((proteins[id1], proteins[id2]))
