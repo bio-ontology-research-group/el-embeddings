@@ -52,7 +52,7 @@ OWLOntology goOnt = manager.loadOntologyFromOntologyDocument(new File("go.owl"))
 OWLOntology ont = manager.createOntology(IRI.create("http://el-embedding.example"))
 OWLDataFactory fac = manager.getOWLDataFactory()
 goOnt.getLogicalAxioms().each { ax ->
-	manager.add(ont, ax)		   
+	manager.addAxiom(ont, ax)		   
 }
 
 
