@@ -48,33 +48,28 @@ if( opt.h ) {
 
 OWLOntologyManager outputManager = OWLManager.createOWLOntologyManager()
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
-OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("go.owl"))
+OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("data/data/go.owl"))
 OWLDataFactory fac = manager.getOWLDataFactory()
 
 
 
 def idset = new LinkedHashSet()
 new File(opt.i).splitEachLine("\t") { line ->
-    if (!line[0].startsWith("item")) {
-	def id1 = line[0]
-	def id2 = line[1]
-	def rel = line[2]
-	def score = 700 //new Integer(line[-1])
-	if (score >= 700) {  // only use high-confidence predictions
-	    idset.add(id1)
-	    idset.add(id2)
-	    def ind1 = fac.getOWLNamedIndividual(IRI.create("http://$id1"))
-	    def ind2 = fac.getOWLNamedIndividual(IRI.create("http://$id2"))
-	    def rel1 = fac.getOWLObjectProperty(IRI.create("http://$rel"))
-	    def ax = fac.getOWLObjectPropertyAssertionAxiom(rel1, ind1, ind2)
-	    manager.addAxiom(ont,ax)
-	}
-    }
+    def id1 = line[0]
+    def id2 = line[1]
+    def rel = 'interacts'
+    idset.add(id1)
+    idset.add(id2)
+    def ind1 = fac.getOWLNamedIndividual(IRI.create("http://$id1"))
+    def ind2 = fac.getOWLNamedIndividual(IRI.create("http://$id2"))
+    def rel1 = fac.getOWLObjectProperty(IRI.create("http://$rel"))
+    def ax = fac.getOWLObjectPropertyAssertionAxiom(rel1, ind1, ind2)
+    manager.addAxiom(ont,ax)
 }
 
 def anonCounter = 0 // counts anonymous individuals
 def hasFunction = fac.getOWLObjectProperty(IRI.create("http://hasFunction"))
-new File("data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
+new File("data/data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
     def id = line[0]+"."+line[1]
     def go = "http://purl.obolibrary.org/obo/"+line[3]?.replaceAll(":","_")
     def goclass = IRI.create(go)
