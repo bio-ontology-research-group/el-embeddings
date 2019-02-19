@@ -48,7 +48,7 @@ if( opt.h ) {
 
 OWLOntologyManager outputManager = OWLManager.createOWLOntologyManager()
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
-OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("data/go.owl"))
+OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("go.owl"))
 OWLDataFactory fac = manager.getOWLDataFactory()
 
 
@@ -63,8 +63,8 @@ new File(opt.i).splitEachLine("\t") { line ->
 	if (score >= 700) {  // only use high-confidence predictions
 	    idset.add(id1)
 	    idset.add(id2)
-	    def ind1 = fac.getOWLClass(IRI.create("http://$id1"))
-	    def ind2 = fac.getOWLClass(IRI.create("http://$id2"))
+	    def ind1 = fac.getOWLNamedIndividual(IRI.create("http://$id1"))
+	    def ind2 = fac.getOWLNamedIndividual(IRI.create("http://$id2"))
 	    def rel1 = fac.getOWLObjectProperty(IRI.create("http://$rel"))
 	    def ax = fac.getOWLObjectPropertyAssertionAxiom(rel1, ind1, ind2)
 	    manager.addAxiom(ont,ax)
@@ -74,7 +74,7 @@ new File(opt.i).splitEachLine("\t") { line ->
 
 def anonCounter = 0 // counts anonymous individuals
 def hasFunction = fac.getOWLObjectProperty(IRI.create("http://hasFunction"))
-new File("data/data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
+new File("data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
     def id = line[0]+"."+line[1]
     def go = "http://purl.obolibrary.org/obo/"+line[3]?.replaceAll(":","_")
     def goclass = IRI.create(go)
