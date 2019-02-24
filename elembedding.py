@@ -127,7 +127,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
         out = el_model([nf1, nf2, nf3, nf4, dis, top, nf3_neg])
         model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis, top, nf3_neg], outputs=out)
-        optimizer = optimizers.Adam(lr=0.0003)
+        optimizer = optimizers.Adam(lr=0.1)
         model.compile(optimizer=optimizer, loss='mse')
 
         # TOP Embedding
@@ -226,8 +226,6 @@ class ELModel(tf.keras.Model):
         rd = tf.math.abs(d[:, -1])
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
-        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
         euc = tf.norm(x1 - x2, axis=1)
         dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
         return dst + self.reg(x1) + self.reg(x2)
@@ -246,19 +244,16 @@ class ELModel(tf.keras.Model):
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         x3 = e[:, 0:-1]
-        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
-        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
-        # x3 = x3 / tf.reshape(tf.norm(x3, axis=1), [-1, 1])
         
         x = x2 - x1
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
         dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
         rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
-        dst_loss = (tf.nn.relu(dst - sr)
-                    + tf.nn.relu(dst2 - rc)
-                    + tf.nn.relu(dst3 - rd)
-                    + rdst - self.margin)
+        dst_loss = (tf.nn.relu(dst - sr - self.margin)
+                    + tf.nn.relu(dst2 - rc - self.margin)
+                    + tf.nn.relu(dst3 - rd - self.margin)
+                    + rdst)
         return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
 
     def nf3_loss(self, input):
@@ -271,9 +266,6 @@ class ELModel(tf.keras.Model):
         r = self.rel_embeddings(r)
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
-        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
-        
         x3 = x1 + r
 
         rc = tf.math.abs(c[:, -1])
@@ -413,27 +405,27 @@ class MyModelCheckpoint(ModelCheckpoint):
             # rank = index[d]
             # fmean_rank += rank
 
-        mean_rank /= n
+        # mean_rank /= n
         # fmean_rank /= n
-        print(f'\n Validation {epoch + 1} {mean_rank}\n')
-        if mean_rank < self.best_rank:
-            self.best_rank = mean_rank
-            print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
-            
-            cls_file = self.out_classes_file
-            rel_file = self.out_relations_file
+        # print(f'\n Validation {epoch + 1} {mean_rank}\n')
+        # if mean_rank < self.best_rank:
+        self.best_rank = mean_rank
+        print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
+        
+        cls_file = self.out_classes_file
+        rel_file = self.out_relations_file
             # Save embeddings of every thousand epochs
             # if (epoch + 1) % 1000 == 0:
             # cls_file = f'{cls_file}_{epoch + 1}.pkl'
             # rel_file = f'{rel_file}_{epoch + 1}.pkl'
 
-            df = pd.DataFrame(
-                {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
-            df.to_pickle(cls_file)
-
-            df = pd.DataFrame(
-                {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
-            df.to_pickle(rel_file)
+        df = pd.DataFrame(
+            {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
+        df.to_pickle(cls_file)
+        
+        df = pd.DataFrame(
+            {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
+        df.to_pickle(rel_file)
 
         
 
