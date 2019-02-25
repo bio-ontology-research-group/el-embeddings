@@ -179,10 +179,10 @@ class ELModel(tf.keras.Model):
         self.reg_norm = reg_norm
         self.batch_size = batch_size
         self.inf = 5.0 # For top radius
-        cls_weights = np.random.randn(nb_classes, embedding_size + 1)
+        cls_weights = np.random.uniform(low=-1, high=1, size=(nb_classes, embedding_size + 1))
         cls_weights = cls_weights / np.linalg.norm(
             cls_weights, axis=1).reshape(-1, 1)
-        rel_weights = np.random.randn(nb_relations, embedding_size)
+        rel_weights = np.random.uniform(low=-1, high=1, size=(nb_relations, embedding_size))
         rel_weights = rel_weights / np.linalg.norm(
             rel_weights, axis=1).reshape(-1, 1)
         self.cls_embeddings = tf.keras.layers.Embedding(
@@ -249,7 +249,7 @@ class ELModel(tf.keras.Model):
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
         dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
-        rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
+        rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re - self.margin)
         dst_loss = (tf.nn.relu(dst - sr - self.margin)
                     + tf.nn.relu(dst2 - rc - self.margin)
                     + tf.nn.relu(dst3 - rd - self.margin)
