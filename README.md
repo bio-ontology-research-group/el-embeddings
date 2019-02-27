@@ -29,10 +29,7 @@ pip install -r requirements.txt
 ```
 
 ```
-usage: elembedding.jl -i INPUT -o OUTPUT [-e EPOCHS] [-l LR] [-d DIM]
-                      [-g] [-h]
-
-Usage: elembedding.py [OPTIONS]
+Usage: python elembedding.py [OPTIONS]
 
 Options:
   -df, --data-file TEXT           Normalized ontology file (Normalizer.groovy)
