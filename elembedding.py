@@ -285,9 +285,7 @@ class ELModel(tf.keras.Model):
         r = self.rel_embeddings(r)
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        # x1 = x1 / tf.norm(x1, axis=1)
-        # x2 = x2 / tf.norm(x2, axis=1)
-
+        
         x3 = x1 + r
 
         rc = tf.math.abs(c[:, -1])
@@ -311,8 +309,6 @@ class ELModel(tf.keras.Model):
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
-        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
         
         # c - r should intersect with d
         x3 = x1 - r
@@ -331,8 +327,6 @@ class ELModel(tf.keras.Model):
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
-        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
         
         dst = tf.reshape(tf.norm(x2 - x1, axis=1), [-1, 1])
         return tf.nn.relu(sr - dst + self.margin) + self.reg(x1) + self.reg(x2)

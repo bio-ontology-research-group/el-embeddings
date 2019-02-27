@@ -21,23 +21,32 @@ usage: groovy Normalizer.groovy -i INPUT -o OUTPUT [-h]
  -o,--output <arg>   output file containing normalized axioms
 ```
 
-To generate the embeddings, run `julia elembedding.jl --help` and follow instructions. You need CUDA installed to use a GPU, and need to install the packages
-`ArgParse`, `MLDataUtils`, `ForwardDiff`, `Distances`, `LinearAlgebra`, `ReverseDiff`, `AutoGrad`, `Random`, `Flux`, `DelimitedFiles` using Julia's package management system (e.g., `Pkg.add()`).
-If you want to use a GPU during training, also install the `CuArrays` package.
+To generate the embeddings, run `python elembedding.py --help` and
+follow instructions. You need CUDA installed to use a GPU, and need to
+install python libraries with:
+```
+pip install -r requirements.txt
+```
 
 ```
 usage: elembedding.jl -i INPUT -o OUTPUT [-e EPOCHS] [-l LR] [-d DIM]
                       [-g] [-h]
 
-optional arguments:
-  -i, --input INPUT    input file containing normalized OWL EL axioms;
-                       usually the output of Normalize.groovy
-  -o, --output OUTPUT  output file containing class, relation, and
-                       instance coordinates
-  -e, --epochs EPOCHS  number of epochs to train (type: Int64,
-                       default: 1000)
-  -l, --lr LR          learning rate (type: Float64, default: 0.01)
-  -d, --dim DIM        input dimensions (type: Int64, default: 20)
-  -g, --gpu            use GPU accelleration
-  -h, --help           show this help message and exit
+Usage: elembedding.py [OPTIONS]
+
+Options:
+  -df, --data-file TEXT           Normalized ontology file (Normalizer.groovy)
+  -vdf, --valid-data-file TEXT    Validation data set
+  -ocf, --out-classes-file TEXT   Pandas pkl file with class embeddings
+  -orf, --out-relations-file TEXT
+                                  Pandas pkl file with relation embeddings
+  -bs, --batch-size INTEGER       Batch size
+  -e, --epochs INTEGER            Training epochs
+  -d, --device TEXT               GPU Device ID
+  -es, --embedding-size INTEGER   Embeddings size
+  -rn, --reg-norm INTEGER         Regularization norm
+  -m, --margin FLOAT              Loss margin
+  -lr, --learning-rate FLOAT      Learning rate
+  -lhf, --loss-history-file TEXT  Pandas pkl file with loss history
+  --help
 ```
