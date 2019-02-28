@@ -47,3 +47,12 @@ Options:
   -lhf, --loss-history-file TEXT  Pandas pkl file with loss history
   --help
 ```
+
+## How to cite
+
+If you use El-Embeddings for your research, or incorporate our
+learning algorithms in your work, please cite:
+
+Maxat Kulmanov, Wang Liu-Wei, Yuan Yan and Robert Hoehndorf;
+EL Embeddings: Geometric construction of models for the Description
+Logic EL++, [arXiv:1902.10499](https://arxiv.org/abs/1902.10499)
