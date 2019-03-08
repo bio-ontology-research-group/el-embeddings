@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO)
     '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
-    '--valid-data-file', '-vdf', default='data/data-valid/4932.protein.links.v10.5.txt',
+    '--valid-data-file', '-vdf', default='data/data-valid/4932.protein.links.full.v11.0.txt',
     help='Validation data set')
 @ck.option(
     '--out-classes-file', '-ocf', default='data/cls_embeddings.pkl',
@@ -239,22 +239,52 @@ class ELModel(tf.keras.Model):
         e = self.cls_embeddings(e)
         rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
         rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
-        re = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
-        sr = rc + rd
+        re = tf.reshape(tf.math.abs(e[:, -1]), [-1, 1])
+        sr = rc + rd # sum of radiuses (or radii?)
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         x3 = e[:, 0:-1]
+
+        dstcd = tf.reshape(tf.norm(x1 - x2, axis=1), [-1,1])
+        h = (tf.math.square(rc) - tf.math.square(rd) + tf.math.divide(tf.math.square(dstcd), tf.math.multiply(2.0,dstcd)))
+        xn = x1 + (h / ( dstcd )) * (x2 - x1)
+        rn = tf.math.sqrt(tf.math.square(rc) - tf.math.square(h))
+        euc = tf.reshape(tf.norm(xn - x3, axis=1),[-1,1])
+        dst_overlap = tf.reshape(tf.nn.relu(euc + rn - re - self.margin), [-1, 1])
+        loss_cd_overlap = dst_overlap + self.reg(xn) + self.reg(x3)
+
+        euc2 = tf.norm(x1 - x3, axis=1)
+        dst_ce = tf.reshape(tf.nn.relu(euc + rc - re - self.margin), [-1, 1])
+        loss_c_in_d = dst_ce + self.reg(x1) + self.reg(x3)
+
+        euc3 = tf.norm(x2 - x3, axis=1)
+        dst_de = tf.reshape(tf.nn.relu(euc + rd - re - self.margin), [-1, 1])
+        loss_d_in_c = dst_de + self.reg(x2) + self.reg(x3)
+
+        dist_disjoint = tf.reshape(sr - dstcd, [-1,1])
+        loss_disjoint = dist_disjoint + self.reg(x3)
+
+        #return tf.cond(dstcd + rc <= rd, lambda: loss_c_in_d, tf.cond(dstcd + rd < rc, lambda: loss_d_in_c, lambda: tf.cond(dstcd > sr, lambda: loss_disjoint, lambda: loss_cd_overlap)))
+        return tf.cond(tf.math.less_equal(tf.math.add(dstcd,rc),rd), lambda: loss_c_in_d, lambda: loss_cd_overlap)
+
+        #if dstcd + rc <= rd: # c lies inside of d or c and d are coincident
+        #if dstcd + rd < rc: # d lies inside of c
+        #if dstcd > sr: # d and c are disjoint
+        #else: # d and c overlap
+
+
+            
         
-        x = x2 - x1
-        dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
-        dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
-        dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
-        rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re - self.margin)
-        dst_loss = (tf.nn.relu(dst - sr - self.margin)
-                    + tf.nn.relu(dst2 - rc - self.margin)
-                    + tf.nn.relu(dst3 - rd - self.margin)
-                    + rdst)
-        return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
+        # x = x2 - x1
+        # dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
+        # dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
+        # dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
+        # rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re - self.margin)
+        # dst_loss = (tf.nn.relu(dst - sr - self.margin)
+        #             + tf.nn.relu(dst2 - rc - self.margin)
+        #             + tf.nn.relu(dst3 - rd - self.margin)
+        #             + rdst)
+        # return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
 
     def nf3_loss(self, input):
         # C subClassOf R some D
@@ -478,6 +508,11 @@ def load_data(filename):
         for line in f:
             # Ignore SubObjectPropertyOf
             if line.startswith('SubObjectPropertyOf'):
+                continue
+            # Ignore Domain and Range restrictions
+            elif line.startswith('ObjectPropertyRange'):
+                continue
+            elif line.startswith('ObjectPropertyDomain'):
                 continue
             # Ignore SubClassOf()
             line = line.strip()[11:-1]
