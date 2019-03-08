@@ -1,5 +1,3 @@
-
-
 import org.semanticweb.owlapi.apibinding.OWLManager
 import org.semanticweb.owlapi.functional.renderer.OWLFunctionalSyntaxRenderer
 import org.semanticweb.owlapi.io.AbstractOWLRenderer
