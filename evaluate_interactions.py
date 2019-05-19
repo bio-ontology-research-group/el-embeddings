@@ -22,13 +22,13 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/9606.protein.links.v10.5.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/cls_embeddings.pkl',
@@ -37,16 +37,16 @@ logging.basicConfig(level=logging.INFO)
     '--rel-embeds-file', '-ref', default='data/rel_embeddings.pkl',
     help='Relation embedings file')
 @ck.option(
-    '--margin', '-m', default=0.01,
+    '--margin', '-m', default=-0.1,
     help='Loss margin')
 @ck.option(
     '--params-array-index', '-pai', default=-1,
     help='Params array index')
 def main(go_file, train_data_file, valid_data_file, test_data_file,
          cls_embeds_file, rel_embeds_file, margin, params_array_index):
-    embedding_size = 100
+    embedding_size = 50
     reg_norm = 1
-    org = 'yeast'
+    org = 'human'
     go = Ontology(go_file, with_rels=False)
     pai = params_array_index
     if params_array_index != -1:
@@ -63,9 +63,9 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         org = orgs[params_array_index % 2]
         print('Params:', org, embedding_size, margin, reg_norm)
         if org == 'human':
-            train_data_file = f'data/data-train/9606.protein.actions.v10.5.txt'
-            valid_data_file = f'data/data-valid/9606.protein.actions.v10.5.txt'
-            test_data_file = f'data/data-test/9606.protein.actions.v10.5.txt'
+            train_data_file = f'data/data-train/9606.protein.links.v10.5.txt'
+            valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
+            test_data_file = f'data/data-test/9606.protein.links.v10.5.txt'
         cls_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
         rel_embeds_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
         loss_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
@@ -108,12 +108,12 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
         c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
         if r not in trlabels:
             trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-        trlabels[r][c, d] = 0
-    for c, r, d in valid_data:
-        c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
-        if r not in trlabels:
-            trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
-        trlabels[r][c, d] = 0
+        trlabels[r][c, d] = 1000
+    # for c, r, d in valid_data:
+    #     c, r, d = prot_dict[classes[c]], relations[r], prot_dict[classes[d]]
+    #     if r not in trlabels:
+    #         trlabels[r] = np.ones((len(prot_embeds), len(prot_embeds)), dtype=np.int32)
+    #     trlabels[r][c, d] = 1000
 
     test_data = load_data(test_data_file, classes, relations)
     top1 = 0
@@ -128,7 +128,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     preds = {}
     ranks = {}
     franks = {}
-    eval_data = test_data
+    eval_data = valid_data
     n = len(eval_data)
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:
@@ -145,16 +145,17 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
 
             dst = np.linalg.norm(prot_embeds - ec.reshape(1, -1), axis=1)
             dst = dst.reshape(-1, 1)
-            if rc > 0:
-                overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
-            else:
-                overlap = (np.maximum(dst - prot_rs - margin, 0) == 0).astype('float32')
+            # if rc > 0:
+            #     overlap = np.maximum(0, (2 * rc - np.maximum(dst + rc - prot_rs - margin, 0)) / (2 * rc))
+            # else:
+            #     overlap = (np.maximum(dst - prot_rs - margin, 0) == 0).astype('float32')
             
-            edst = np.maximum(0, dst - rc - prot_rs - margin)
-            res = (overlap + 1 / np.exp(edst)) / 2
+            # edst = np.maximum(0, dst - rc - prot_rs - margin)
+            # res = (overlap + 1 / np.exp(edst)) / 2
+            res = np.maximum(0, dst - rc - prot_rs - margin)
             res = res.flatten()
             preds[r][c, :] = res
-            index = rankdata(-res, method='average')
+            index = rankdata(res, method='average')
             rank = index[d]
             if rank == 1:
                 top1 += 1
@@ -168,7 +169,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
             ranks[rank] += 1
 
             # Filtered rank
-            index = rankdata(-(res * trlabels[r][c, :]), method='average')
+            index = rankdata((res * trlabels[r][c, :]), method='average')
             rank = index[d]
             if rank == 1:
                 ftop1 += 1
@@ -246,12 +247,12 @@ def compute_fmax(labels, preds):
     
 def load_data(data_file, classes, relations):
     data = []
+    rel = f'<http://interacts>'
     with open(data_file, 'r') as f:
         for line in f:
             it = line.strip().split()
             id1 = f'<http://{it[0]}>'
             id2 = f'<http://{it[1]}>'
-            rel = f'<http://{it[2]}>'
             if id1 not in classes or id2 not in classes or rel not in relations:
                 continue
             data.append((id1, rel, id2))

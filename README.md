@@ -1,6 +1,9 @@
 # EL Embeddings
 
-Here you can find the code to generate spherical embeddings for the description logic EL++ (the logic used in OWL 2 EL).
+Here you can find the code to generate spherical embeddings for the
+description logic EL++ (the logic used in OWL 2 EL).
+
+![](embeds.gif)
 
 ## How to run
 

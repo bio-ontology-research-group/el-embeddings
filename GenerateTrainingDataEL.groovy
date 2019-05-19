@@ -48,7 +48,7 @@ if( opt.h ) {
 
 OWLOntologyManager outputManager = OWLManager.createOWLOntologyManager()
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
-OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("data/data/go.owl"))
+OWLOntology goOnt = manager.loadOntologyFromOntologyDocument(new File("data/data/go.owl"))
 OWLOntology ont = manager.createOntology(IRI.create("http://el-embedding.example"))
 OWLDataFactory fac = manager.getOWLDataFactory()
 goOnt.getLogicalAxioms().each { ax ->

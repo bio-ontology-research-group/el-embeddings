@@ -28,10 +28,10 @@ logging.basicConfig(level=logging.INFO)
 
 @ck.command()
 @ck.option(
-    '--data-file', '-df', default='data/data-train/yeast-classes-normalized.owl',
+    '--data-file', '-df', default='data/data-train/human-classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
-    '--valid-data-file', '-vdf', default='data/data-valid/4932.protein.links.v10.5.txt',
+    '--valid-data-file', '-vdf', default='data/data-valid/9606.protein.links.v10.5.txt',
     help='Validation data set')
 @ck.option(
     '--out-classes-file', '-ocf', default='data/cls_embeddings.pkl',
@@ -49,16 +49,16 @@ logging.basicConfig(level=logging.INFO)
     '--device', '-d', default='gpu:0',
     help='GPU Device ID')
 @ck.option(
-    '--embedding-size', '-es', default=100,
+    '--embedding-size', '-es', default=50,
     help='Embeddings size')
 @ck.option(
     '--reg-norm', '-rn', default=1,
     help='Regularization norm')
 @ck.option(
-    '--margin', '-m', default=0.0,
+    '--margin', '-m', default=-0.1,
     help='Loss margin')
 @ck.option(
-    '--learning-rate', '-lr', default=0.01,
+    '--learning-rate', '-lr', default=3e-4,
     help='Learning rate')
 @ck.option(
     '--params-array-index', '-pai', default=-1,
@@ -127,7 +127,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         el_model = ELModel(nb_classes, nb_relations, embedding_size, batch_size, margin, reg_norm)
         out = el_model([nf1, nf2, nf3, nf4, dis, top, nf3_neg])
         model = tf.keras.Model(inputs=[nf1, nf2, nf3, nf4, dis, top, nf3_neg], outputs=out)
-        optimizer = optimizers.Adam(lr=0.1)
+        optimizer = optimizers.Adam(lr=learning_rate)
         model.compile(optimizer=optimizer, loss='mse')
 
         # TOP Embedding
@@ -399,27 +399,27 @@ class MyModelCheckpoint(ModelCheckpoint):
             # rank = index[d]
             # fmean_rank += rank
 
-        # mean_rank /= n
+        mean_rank /= n
         # fmean_rank /= n
         # print(f'\n Validation {epoch + 1} {mean_rank}\n')
-        # if mean_rank < self.best_rank:
-        self.best_rank = mean_rank
-        print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
+        if mean_rank < self.best_rank:
+            self.best_rank = mean_rank
+            print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')
         
-        cls_file = self.out_classes_file
-        rel_file = self.out_relations_file
+            cls_file = self.out_classes_file
+            rel_file = self.out_relations_file
             # Save embeddings of every thousand epochs
             # if (epoch + 1) % 1000 == 0:
             # cls_file = f'{cls_file}_{epoch + 1}.pkl'
             # rel_file = f'{rel_file}_{epoch + 1}.pkl'
 
-        df = pd.DataFrame(
-            {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
-        df.to_pickle(cls_file)
+            df = pd.DataFrame(
+                {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
+            df.to_pickle(cls_file)
         
-        df = pd.DataFrame(
-            {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
-        df.to_pickle(rel_file)
+            df = pd.DataFrame(
+                {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
+            df.to_pickle(rel_file)
 
         
 
