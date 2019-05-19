@@ -239,7 +239,7 @@ class ELModel(tf.keras.Model):
         e = self.cls_embeddings(e)
         rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
         rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
-        re = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
+        re = tf.reshape(tf.math.abs(e[:, -1]), [-1, 1])
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
