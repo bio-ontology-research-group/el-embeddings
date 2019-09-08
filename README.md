@@ -51,6 +51,10 @@ Options:
   --help
 ```
 
+## Data
+
+Data is available here http://bio2vec.net/data/elembeddings/el-embeddings-data.zip
+
 ## How to cite
 
 If you use El-Embeddings for your research, or incorporate our
