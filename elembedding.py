@@ -540,6 +540,8 @@ def load_data(filename):
     # Check if TOP in classes and insert if it is not there
     if 'owl:Thing' not in classes:
         classes['owl:Thing'] = len(classes)
+    if 'owl:Nothing' not in classes:
+        classes['owl:Nothing'] = len(classes)
 
     prot_ids = []
     for k, v in classes.items():
