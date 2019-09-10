@@ -204,10 +204,14 @@ class ELModel(tf.keras.Model):
         loss2 = self.nf2_loss(nf2)
         loss3 = self.nf3_loss(nf3)
         loss4 = self.nf4_loss(nf4)
-        loss_dis = self.dis_loss(dis)
         loss_top = self.top_loss(top)
-        loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_top + loss_nf3_neg
+        loss = loss1 + loss2 + loss3 + loss4 + loss_top + loss_nf3_neg
+        if len(dis) > 0:
+            loss_dis = self.dis_loss(dis)
+            loss += loss_dis
+        if len(nf3_neg) > 0:
+            loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
+            loss += loss_nf3_neg
         return loss
 
     
