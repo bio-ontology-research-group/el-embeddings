@@ -205,13 +205,9 @@ class ELModel(tf.keras.Model):
         loss3 = self.nf3_loss(nf3)
         loss4 = self.nf4_loss(nf4)
         loss_top = self.top_loss(top)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_top + loss_nf3_neg
-        if len(dis) > 0:
-            loss_dis = self.dis_loss(dis)
-            loss += loss_dis
-        if len(nf3_neg) > 0:
-            loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
-            loss += loss_nf3_neg
+        loss_dis = self.dis_loss(dis)
+        loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
+        loss = loss1 + loss2 + loss3 + loss4 + loss_top + loss_dis + loss_nf3_neg
         return loss
 
     
@@ -551,14 +547,17 @@ def load_data(filename):
             prot_ids.append(v)
     prot_ids = np.array(prot_ids)
     
-    # # Add pairwise disjointness for proteins
-    # nothing = classes['owl:Nothing']
-    # n_prots = len(prot_ids)
-    # for i in range(100000):
-    #     it = np.random.choice(n_prots, 2)
-    #     if it[0] != it[1]:
-    #         data['disjoint'].append((prot_ids[it[0]], prot_ids[it[1]], nothing))
-
+    # Add at least one disjointness axiom if there is 0
+    if len(data['disjoint']) == 0:
+        nothing = classes['owl:Nothing']
+        n_prots = len(prot_ids)
+        for i in range(10):
+            it = np.random.choice(n_prots, 2)
+            if it[0] != it[1]:
+                data['disjoint'].append(
+                    (prot_ids[it[0]], prot_ids[it[1]], nothing))
+                break
+        
     # Add corrupted triples for nf3
     n_classes = len(classes)
     data['nf3_neg'] = []
