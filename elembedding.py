@@ -310,10 +310,10 @@ class ELModel(tf.keras.Model):
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         
-        # c - r should intersect with d
+        # c - r should lie inside d
         x3 = x1 - r
         dst = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
-        dst_loss = tf.nn.relu(dst - sr - self.margin)
+        dst_loss = tf.nn.relu(dst + rc - rd - self.margin)
         return dst_loss + self.reg(x1) + self.reg(x2)
     
 
