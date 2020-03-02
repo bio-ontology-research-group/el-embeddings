@@ -207,7 +207,7 @@ class ELModel(tf.keras.Model):
         loss_top = self.top_loss(top)
         loss_dis = self.dis_loss(dis)
         loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_top + loss_dis + loss_nf3_neg
+        loss = loss1 + loss2 + loss3 + loss4 + loss_top + loss_dis # + loss_nf3_neg
         return loss
 
     
@@ -227,7 +227,7 @@ class ELModel(tf.keras.Model):
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         euc = tf.norm(x1 - x2, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd + self.margin), [-1, 1])
         return dst + self.reg(x1) + self.reg(x2)
     
     def nf2_loss(self, input):
@@ -250,9 +250,9 @@ class ELModel(tf.keras.Model):
         dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
         rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re - self.margin)
-        dst_loss = (tf.nn.relu(dst - sr - self.margin)
-                    + tf.nn.relu(dst2 - rc - self.margin)
-                    + tf.nn.relu(dst3 - rd - self.margin)
+        dst_loss = (tf.nn.relu(dst - sr + self.margin)
+                    + tf.nn.relu(dst2 - rc + self.margin)
+                    + tf.nn.relu(dst3 - rd + self.margin)
                     + rdst)
         return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
 
@@ -271,7 +271,7 @@ class ELModel(tf.keras.Model):
         rc = tf.math.abs(c[:, -1])
         rd = tf.math.abs(d[:, -1])
         euc = tf.norm(x3 - x2, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd + self.margin), [-1, 1])
         
         return dst + self.reg(x1) + self.reg(x2)
 
@@ -310,10 +310,10 @@ class ELModel(tf.keras.Model):
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         
-        # c - r should lie inside d
+        # c - r should intersect with d
         x3 = x1 - r
         dst = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
-        dst_loss = tf.nn.relu(dst + rc - rd - self.margin)
+        dst_loss = tf.nn.relu(dst - sr - self.margin)
         return dst_loss + self.reg(x1) + self.reg(x2)
     
 
@@ -370,6 +370,19 @@ class MyModelCheckpoint(ModelCheckpoint):
         prot_rs = prot_embeds[:, -1].reshape(-1, 1)
         prot_embeds = prot_embeds[:, :-1]
 
+        cls_file = self.out_classes_file + '_test.pkl'
+        rel_file = self.out_relations_file + '_test.pkl'
+        # cls_file = f'{cls_file}_{epoch + 1}.pkl'
+        # rel_file = f'{rel_file}_{epoch + 1}.pkl'
+
+        df = pd.DataFrame(
+            {'classes': self.cls_list, 'embeddings': list(cls_embeddings)})
+        df.to_pickle(cls_file)
+
+        df = pd.DataFrame(
+            {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
+        df.to_pickle(rel_file)
+        return
         # prot_embeds = prot_embeds / np.linalg.norm(prot_embeds, axis=1).reshape(-1, 1)
         
         mean_rank = 0
