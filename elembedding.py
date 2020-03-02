@@ -382,8 +382,7 @@ class MyModelCheckpoint(ModelCheckpoint):
         df = pd.DataFrame(
             {'relations': self.rel_list, 'embeddings': list(rel_embeddings)})
         df.to_pickle(rel_file)
-        return
-        # prot_embeds = prot_embeds / np.linalg.norm(prot_embeds, axis=1).reshape(-1, 1)
+        prot_embeds = prot_embeds / np.linalg.norm(prot_embeds, axis=1).reshape(-1, 1)
         
         mean_rank = 0
         n = len(self.valid_data)
