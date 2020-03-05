@@ -54,6 +54,7 @@ Options:
 ## Data
 
 Data is available here http://bio2vec.net/data/elembeddings/el-embeddings-data.zip
+
 Embeddings for yeast and human
 http://bio2vec.net/data/elembeddings/embeddings.tar.gz
 
