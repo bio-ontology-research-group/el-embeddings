@@ -178,7 +178,7 @@ class ELModel(tf.keras.Model):
         self.margin = margin
         self.reg_norm = reg_norm
         self.batch_size = batch_size
-        self.inf = 5.0 # For top radius
+        self.inf = 100.0 # For top radius
         cls_weights = np.random.uniform(low=-1, high=1, size=(nb_classes, embedding_size + 1))
         cls_weights = cls_weights / np.linalg.norm(
             cls_weights, axis=1).reshape(-1, 1)
@@ -207,7 +207,7 @@ class ELModel(tf.keras.Model):
         loss_dis = self.dis_loss(dis)
         loss_top = self.top_loss(top)
         loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_top + loss_nf3_neg
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_nf3_neg
         return loss
 
     
@@ -222,14 +222,14 @@ class ELModel(tf.keras.Model):
         c = self.cls_embeddings(c)
         d = self.cls_embeddings(d)
 
-        rc = tf.math.abs(c[:, -1])
-        rd = tf.math.abs(d[:, -1])
+        rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
+        rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
         # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
-        euc = tf.norm(x1 - x2, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        euc = tf.reshape(tf.norm(x1 - x2, axis=1), [-1, 1])
+        dst = tf.nn.relu(euc + rc - rd - self.margin)
         return dst + self.reg(x1) + self.reg(x2)
     
     def nf2_loss(self, input):
@@ -276,10 +276,10 @@ class ELModel(tf.keras.Model):
         
         x3 = x1 + r
 
-        rc = tf.math.abs(c[:, -1])
-        rd = tf.math.abs(d[:, -1])
-        euc = tf.norm(x3 - x2, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
+        rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
+        rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
+        euc = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
+        dst = tf.nn.relu(euc + rc - rd - self.margin)
         
         return dst + self.reg(x1) + self.reg(x2)
 
@@ -298,12 +298,12 @@ class ELModel(tf.keras.Model):
 
         x3 = x1 + r
 
-        rc = tf.math.abs(c[:, -1])
-        rd = tf.math.abs(d[:, -1])
-        euc = tf.norm(x3 - x2, axis=1)
-        dst = tf.reshape((-(euc - rc - rd) + self.margin), [-1, 1])
+        rc = tf.reshape(tf.math.abs(c[:, -1]), [-1, 1])
+        rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
+        euc = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
+        dst = -(euc - rc - rd - self.margin)
         
-        return dst + self.reg(x1) + self.reg(x2)
+        return tf.nn.relu(dst) + self.reg(x1) + self.reg(x2)
 
 
     def nf4_loss(self, input):
