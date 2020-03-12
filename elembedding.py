@@ -255,9 +255,9 @@ class ELModel(tf.keras.Model):
         dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
         # rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
-        dst_loss = (tf.nn.relu(dst - sr + self.margin)
-                    + tf.nn.relu(dst2 - rc + self.margin)
-                    + tf.nn.relu(dst3 - rd + self.margin))
+        dst_loss = (tf.nn.relu(dst - sr - self.margin)
+                    + tf.nn.relu(dst2 - rc - self.margin)
+                    + tf.nn.relu(dst3 - rd - self.margin))
                     # + rdst - self.margin)
         return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
 
