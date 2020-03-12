@@ -7,6 +7,7 @@ import logging
 import math
 import os
 from collections import deque
+from mpl_toolkits.mplot3d import Axes3D
 
 from utils import Ontology, FUNC_DICT
 
@@ -36,6 +37,7 @@ def main(go_file, cls_embeds_file, rel_embeds_file, epoch):
     cls_df = pd.read_pickle(cls_embeds_file)
     rel_df = pd.read_pickle(rel_embeds_file)
     nb_classes = len(cls_df)
+    print(nb_classes)
     nb_relations = len(rel_df)
     embeds_list = cls_df['embeddings'].values
     classes = {k: v for k, v in enumerate(cls_df['classes'])}
@@ -69,29 +71,33 @@ def main(go_file, cls_embeds_file, rel_embeds_file, epoch):
     plot_embeddings(embeds, rs, classes, epoch)
 
 def plot_embeddings(embeds, rs, classes, epoch):
+    
     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
     if embeds.shape[1] > 2:
         embeds = TSNE().fit_transform(embeds)
     
-    fig, ax =  plt.subplots()
-    plt.axis('equal')
-    # ax.set_xlim(-5, 4)
-    # ax.set_ylim(-3, 4)
+    fig =  plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_aspect('equal')
+    
+    
     for i in range(embeds.shape[0]):
         if classes[i].startswith('owl:'):
             continue
-        x, y = embeds[i, 0], embeds[i, 1]
+        if classes[i] in {'<Maxat>', '<Aigerim>'}:
+            continue
+        a, b = embeds[i, 0], embeds[i, 1]
         r = rs[i]
-        ax.add_artist(plt.Circle(
-            (x, y), r, fill=False, edgecolor=colors[i % len(colors)], label=classes[i]))
-        ax.annotate(classes[i], xy=(x, y + r + 0.03), fontsize=10, ha="center", color=colors[i % len(colors)])
-    # ax.legend()
-    ax.grid(True)
-    filename = 'embeds.pdf'
-    if epoch:
-        filename = f'embeds_{int(epoch):02d}.png' 
+        u = np.linspace(0, 2 * np.pi, 100)
+        v = np.linspace(0, np.pi, 100)
+        x = r * np.outer(np.cos(u), np.sin(v)) + a
+        y = r * np.outer(np.sin(u), np.sin(v)) + b
+        z = r * np.outer(np.ones(np.size(u)), np.cos(v))
+        ax.plot_surface(x, y, z, color=colors[(i + 2) % len(colors)], rstride=4, cstride=4, linewidth=0, alpha=0.3)
+        # ax.annotate(classes[i][1:-1], xy=(x, y + r + 0.03), fontsize=10, ha="center", color=colors[i % len(colors)])
+    filename = 'embeds3d.pdf'
     plt.savefig(filename)
-    # plt.show()
+    plt.show()
 
     
 if __name__ == '__main__':

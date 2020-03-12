@@ -28,10 +28,10 @@ logging.basicConfig(level=logging.INFO)
 
 @ck.command()
 @ck.option(
-    '--data-file', '-df', default='data/data-train/human-classes-normalized.owl',
+    '--data-file', '-df', default='data/train/4932.classes-normalized.owl',
     help='Normalized ontology file (Normalizer.groovy)')
 @ck.option(
-    '--valid-data-file', '-vdf', default='data/data-valid/9606.protein.links.v10.5.txt',
+    '--valid-data-file', '-vdf', default='data/valid/4932.protein.links.v11.0.txt',
     help='Validation data set')
 @ck.option(
     '--out-classes-file', '-ocf', default='data/cls_embeddings.pkl',
@@ -58,7 +58,7 @@ logging.basicConfig(level=logging.INFO)
     '--margin', '-m', default=-0.1,
     help='Loss margin')
 @ck.option(
-    '--learning-rate', '-lr', default=3e-4,
+    '--learning-rate', '-lr', default=0.01,
     help='Learning rate')
 @ck.option(
     '--params-array-index', '-pai', default=-1,
@@ -97,7 +97,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     for k, v in classes.items():
         if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
             proteins[k] = v
-            
+    print('Proteins:', len(proteins))
+    
     nb_classes = len(classes)
     nb_relations = len(relations)
     nb_train_data = 0
@@ -204,10 +205,10 @@ class ELModel(tf.keras.Model):
         loss2 = self.nf2_loss(nf2)
         loss3 = self.nf3_loss(nf3)
         loss4 = self.nf4_loss(nf4)
-        loss_top = self.top_loss(top)
         loss_dis = self.dis_loss(dis)
+        loss_top = self.top_loss(top)
         loss_nf3_neg = self.nf3_neg_loss(nf3_neg)
-        loss = loss1 + loss2 + loss3 + loss4 + loss_top + loss_dis + loss_nf3_neg
+        loss = loss1 + loss2 + loss3 + loss4 + loss_dis + loss_top + loss_nf3_neg
         return loss
 
     
@@ -226,8 +227,10 @@ class ELModel(tf.keras.Model):
         rd = tf.math.abs(d[:, -1])
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
+        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
         euc = tf.norm(x1 - x2, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd + self.margin), [-1, 1])
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
         return dst + self.reg(x1) + self.reg(x2)
     
     def nf2_loss(self, input):
@@ -244,16 +247,19 @@ class ELModel(tf.keras.Model):
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
         x3 = e[:, 0:-1]
+        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
+        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
+        # x3 = x3 / tf.reshape(tf.norm(x3, axis=1), [-1, 1])
         
         x = x2 - x1
         dst = tf.reshape(tf.norm(x, axis=1), [-1, 1])
         dst2 = tf.reshape(tf.norm(x3 - x1, axis=1), [-1, 1])
         dst3 = tf.reshape(tf.norm(x3 - x2, axis=1), [-1, 1])
-        rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
-        dst_loss = (tf.nn.relu(dst - sr)
-                    + tf.nn.relu(dst2 - rc)
-                    + tf.nn.relu(dst3 - rd)
-                    + rdst - self.margin)
+        # rdst = tf.nn.relu(tf.math.minimum(rc, rd) - re)
+        dst_loss = (tf.nn.relu(dst - sr + self.margin)
+                    + tf.nn.relu(dst2 - rc + self.margin)
+                    + tf.nn.relu(dst3 - rd + self.margin))
+                    # + rdst - self.margin)
         return dst_loss + self.reg(x1) + self.reg(x2) + self.reg(x3)
 
     def nf3_loss(self, input):
@@ -266,12 +272,15 @@ class ELModel(tf.keras.Model):
         r = self.rel_embeddings(r)
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
+        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
+        
         x3 = x1 + r
 
         rc = tf.math.abs(c[:, -1])
         rd = tf.math.abs(d[:, -1])
         euc = tf.norm(x3 - x2, axis=1)
-        dst = tf.reshape(tf.nn.relu(euc + rc - rd + self.margin), [-1, 1])
+        dst = tf.reshape(tf.nn.relu(euc + rc - rd - self.margin), [-1, 1])
         
         return dst + self.reg(x1) + self.reg(x2)
 
@@ -285,7 +294,9 @@ class ELModel(tf.keras.Model):
         r = self.rel_embeddings(r)
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
-        
+        # x1 = x1 / tf.norm(x1, axis=1)
+        # x2 = x2 / tf.norm(x2, axis=1)
+
         x3 = x1 + r
 
         rc = tf.math.abs(c[:, -1])
@@ -309,6 +320,8 @@ class ELModel(tf.keras.Model):
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
+        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
         
         # c - r should intersect with d
         x3 = x1 - r
@@ -327,6 +340,8 @@ class ELModel(tf.keras.Model):
         sr = rc + rd
         x1 = c[:, 0:-1]
         x2 = d[:, 0:-1]
+        # x1 = x1 / tf.reshape(tf.norm(x1, axis=1), [-1, 1])
+        # x2 = x2 / tf.reshape(tf.norm(x2, axis=1), [-1, 1])
         
         dst = tf.reshape(tf.norm(x2 - x1, axis=1), [-1, 1])
         return tf.nn.relu(sr - dst + self.margin) + self.reg(x1) + self.reg(x2)
@@ -337,7 +352,7 @@ class ELModel(tf.keras.Model):
         d = self.cls_embeddings(d)
         rd = tf.reshape(tf.math.abs(d[:, -1]), [-1, 1])
         return tf.math.abs(rd - self.inf)
-    
+
 
 class MyModelCheckpoint(ModelCheckpoint):
 
@@ -413,7 +428,7 @@ class MyModelCheckpoint(ModelCheckpoint):
 
         mean_rank /= n
         # fmean_rank /= n
-        # print(f'\n Validation {epoch + 1} {mean_rank}\n')
+        print(f'\n Validation {epoch + 1} {mean_rank}\n')
         if mean_rank < self.best_rank:
             self.best_rank = mean_rank
             print(f'\n Saving embeddings {epoch + 1} {mean_rank}\n')

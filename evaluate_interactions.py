@@ -22,13 +22,13 @@ logging.basicConfig(level=logging.INFO)
     '--go-file', '-gf', default='data/go.obo',
     help='Gene Ontology file in OBO Format')
 @ck.option(
-    '--train-data-file', '-trdf', default='data/data-train/9606.protein.links.v10.5.txt',
+    '--train-data-file', '-trdf', default='data/data-train/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--valid-data-file', '-vldf', default='data/data-valid/9606.protein.links.v10.5.txt',
+    '--valid-data-file', '-vldf', default='data/data-valid/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
-    '--test-data-file', '-tsdf', default='data/data-test/9606.protein.links.v10.5.txt',
+    '--test-data-file', '-tsdf', default='data/data-test/4932.protein.links.v10.5.txt',
     help='')
 @ck.option(
     '--cls-embeds-file', '-cef', default='data/cls_embeddings.pkl',
@@ -128,7 +128,7 @@ def main(go_file, train_data_file, valid_data_file, test_data_file,
     preds = {}
     ranks = {}
     franks = {}
-    eval_data = valid_data
+    eval_data = test_data
     n = len(eval_data)
     with ck.progressbar(eval_data) as prog_data:
         for c, r, d in prog_data:

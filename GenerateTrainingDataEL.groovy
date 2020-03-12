@@ -34,6 +34,7 @@ cli.with {
 usage: 'Self'
   h longOpt:'help', 'this information'
   i longOpt:'input', 'input STRING file', args:1, required:true
+  g longOpt:'input', 'Ontology file', args:1, required:true
   o longOpt:'output', 'output file containing generated ontology',args:1, required:true
 }
 def opt = cli.parse(args)
@@ -48,7 +49,7 @@ if( opt.h ) {
 
 OWLOntologyManager outputManager = OWLManager.createOWLOntologyManager()
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
-OWLOntology goOnt = manager.loadOntologyFromOntologyDocument(new File("data/data/go.owl"))
+OWLOntology goOnt = manager.loadOntologyFromOntologyDocument(new File(opt.g))
 OWLOntology ont = manager.createOntology(IRI.create("http://el-embedding.example"))
 OWLDataFactory fac = manager.getOWLDataFactory()
 goOnt.getLogicalAxioms().each { ax ->

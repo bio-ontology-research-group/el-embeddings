@@ -29,6 +29,7 @@ cli.with {
 usage: 'Self'
   h longOpt:'help', 'this information'
   i longOpt:'input', 'input STRING file', args:1, required:true
+  g longOpt:'input', 'Gene Ontology file', args:1, required:true
   o longOpt:'output', 'output file containing generated ontology',args:1, required:true
 }
 def opt = cli.parse(args)
@@ -43,7 +44,7 @@ if( opt.h ) {
 
 OWLOntologyManager outputManager = OWLManager.createOWLOntologyManager()
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
-OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("data/data/go.owl"))
+OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File(opt.g))
 OWLDataFactory fac = manager.getOWLDataFactory()
 
 
