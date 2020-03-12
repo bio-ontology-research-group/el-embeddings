@@ -72,7 +72,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     # SLURM JOB ARRAY INDEX
     pai = params_array_index
     if params_array_index != -1:
-        orgs = ['human', 'yeast']
+        orgs = ['9606', '4932']
         sizes = [50, 100, 200, 400]
         margins = [-0.1, -0.01, 0.0, 0.01, 0.1]
         reg_norms = [1,]
@@ -84,9 +84,8 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
         org = orgs[params_array_index % 2]
         print('Params:', org, embedding_size, margin, reg_norm)
         
-        data_file = f'data/data-train/{org}-classes-normalized.owl'
-        if org == 'human':
-            valid_data_file = f'data/data-valid/9606.protein.links.v10.5.txt'
+        data_file = f'data/train/{org}.classes-normalized.owl'
+        valid_data_file = f'data/valid/{org}.protein.links.v11.0.txt'
         out_classes_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_cls.pkl'
         out_relations_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_rel.pkl'
         loss_history_file = f'data/{org}_{pai}_{embedding_size}_{margin}_{reg_norm}_loss.csv'
@@ -95,7 +94,7 @@ def main(data_file, valid_data_file, out_classes_file, out_relations_file,
     
     proteins = {}
     for k, v in classes.items():
-        if not k.startswith('<http://purl.obolibrary.org/obo/GO_'):
+        if k.startswith(f'<http://{org}'):
             proteins[k] = v
     print('Proteins:', len(proteins))
     
