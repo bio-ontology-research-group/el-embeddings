@@ -26,7 +26,6 @@ cli.with {
 usage: 'Self'
   h longOpt:'help', 'this information'
   i longOpt:'input', 'input STRING file', args:1, required:true
-  g longOpt:'input', 'Ontology file in OBO', args:1, required:true
   o longOpt:'output', 'output file containing N3 file',args:1, required:true
 }
 def opt = cli.parse(args)
@@ -43,7 +42,7 @@ PrintWriter fout = new PrintWriter(new BufferedWriter(new FileWriter(opt.o)))
 
 def tid = ""
 def map = [:].withDefault { [:].withDefault { new LinkedHashSet() } }
-new File(opt.g).eachLine { line ->
+new File("data/go.obo").eachLine { line ->
     if (line.startsWith("id:")) {
 	tid = line.substring(3).trim()
     }
