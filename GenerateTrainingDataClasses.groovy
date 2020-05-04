@@ -29,7 +29,7 @@ cli.with {
 usage: 'Self'
   h longOpt:'help', 'this information'
   i longOpt:'input', 'input STRING file', args:1, required:true
-  g longOpt:'input', 'Gene Ontology file', args:1, required:true
+  a longOpt:'annot', 'input annotations file', args:1, required:true
   o longOpt:'output', 'output file containing generated ontology',args:1, required:true
 }
 def opt = cli.parse(args)
@@ -44,7 +44,7 @@ if( opt.h ) {
 
 OWLOntologyManager outputManager = OWLManager.createOWLOntologyManager()
 OWLOntologyManager manager = OWLManager.createOWLOntologyManager()
-OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File(opt.g))
+OWLOntology ont = manager.loadOntologyFromOntologyDocument(new File("data/go.owl"))
 OWLDataFactory fac = manager.getOWLDataFactory()
 
 
@@ -64,9 +64,9 @@ new File(opt.i).splitEachLine("\t") { line ->
 }
 
 def hasFunction = fac.getOWLObjectProperty(IRI.create("http://hasFunction"))
-new File("data/data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line ->
-    def id = line[0] + "." + line[1]
-    def go = "http://purl.obolibrary.org/obo/"+line[3]?.replaceAll(":","_")
+new File(opt.a).splitEachLine("\t") { line ->
+    def id = line[0]
+    def go = "http://purl.obolibrary.org/obo/" + line[1]?.replaceAll(":", "_")
     def goclass = IRI.create(go)
     if (id in idset) {
 	def ind1 = fac.getOWLClass(IRI.create("http://$id"))
@@ -76,4 +76,4 @@ new File("data/data/all_go_knowledge_explicit.tsv").splitEachLine("\t") { line -
 }
 
 File f = new File(opt.o)
-manager.saveOntology(ont,  IRI.create("file:"+f.getAbsolutePath()))
+manager.saveOntology(ont,  IRI.create("file:" + f.getAbsolutePath()))
