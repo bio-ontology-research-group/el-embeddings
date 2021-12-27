@@ -11,7 +11,7 @@ There are two parts that need to be executed sequentially. The first part conver
 The second part of the method generates the embeddings for classes, relations, and individuals.
 
 To build: To generate the normal forms, you need a modified version of the `jcel` reasoner which you find in a submodule here (if you have not cloned this repository with submodules, try
-to do `git clone --recurse-submodules https://github.com/leechuck/el-embeddings`.
+to do `git clone --recurse-submodules https://github.com/bio-ontology-research-group/el-embeddings`.
 Next, `cd jcel` and `mvn install` to build the jcel jar files.
 
 For convenience, we include the jar file in the `jar/` subdirectory, so you may simply want to add `jcel.jar` to your CLASSPATH.
@@ -53,10 +53,10 @@ Options:
 
 ## Data
 
-Data is available here http://bio2vec.net/data/elembeddings/el-embeddings-data.zip
+Data is available here https://bio2vec.cbrc.kaust.edu.sa/data/elembeddings/el-embeddings-data.zip
 
 Embeddings for yeast and human
-http://bio2vec.net/data/elembeddings/embeddings.tar.gz
+https://bio2vec.cbrc.kaust.edu.sa/data/elembeddings/embeddings.tar.gz
 
 ## How to cite
 
