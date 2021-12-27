@@ -40,7 +40,7 @@ logging.basicConfig(level=logging.INFO)
     '--out-relations-file', '-orf', default='data/rel_embeddings.pkl',
     help='Pandas pkl file with relation embeddings')
 @ck.option(
-    '--batch-size', '-bs', default=256,
+    '--batch-size', '-bs', default=512,
     help='Batch size')
 @ck.option(
     '--epochs', '-e', default=1000,
